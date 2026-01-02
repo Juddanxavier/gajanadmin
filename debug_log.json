@@ -1,0 +1,36 @@
+[
+  {
+    "name": "v2 /courier/list POST",
+    "url": "https://api.track123.com/gateway/open-api/tk/v2/courier/list",
+    "method": "POST",
+    "status": 400,
+    "statusText": "Bad Request",
+    "responseRaw": "{\"code\":\"A0400\",\"msg\":\"params format error\",\"traceId\":\"N/A\"}...",
+    "responseJsonSummary": {
+      "code": "A0400",
+      "msg": "params format error"
+    }
+  },
+  {
+    "name": "v2 /carrier/list POST",
+    "url": "https://api.track123.com/gateway/open-api/tk/v2/carrier/list",
+    "method": "POST",
+    "status": 404,
+    "statusText": "Not Found",
+    "responseRaw": "{\"timestamp\":\"2025-12-24 09:49:27\",\"status\":404,\"error\":\"Not Found\",\"message\":\"\",\"path\":\"/open-api/v2/carrier/list\"}...",
+    "responseJsonSummary": {}
+  },
+  {
+    "name": "v2 /courier/list GET",
+    "url": "https://api.track123.com/gateway/open-api/tk/v2/courier/list",
+    "method": "GET",
+    "status": 200,
+    "statusText": "OK",
+    "responseRaw": "{\"code\":\"00000\",\"data\":[{\"courierCode\":\"poczta-polska\",\"courierNameCN\":\"波兰邮政\",\"courierNameEN\":\"Poczta Polska\",\"courierHomePage\":\"http://www.poczta-polska.pl/\"},{\"courierCode\":\"belgium-post\",\"courierNameCN\":\"比利时邮政\",\"courierNameEN\":\"Bpost\",\"courierHomePage\":\"http://www.bpost.be/\"},{\"courierCode\":\"tnt\",\"courierNameCN\":\"TNT\",\"courierNameEN\":\"TNT\",\"courierHomePage\":\"http://www.tnt.com/\"},{\"courierCode\":\"japan-post\",\"courierNameCN\":\"日本邮政\",\"courierNameEN\":\"Japan Post\",\"courierHomePage\":\"http://www.post...",
+    "responseJsonSummary": {
+      "code": "00000",
+      "msg": "Success",
+      "count": 1890
+    }
+  }
+]

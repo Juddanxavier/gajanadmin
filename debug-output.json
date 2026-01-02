@@ -1,0 +1,24 @@
+{
+  "code": "00000",
+  "data": {
+    "accepted": {
+      "content": [],
+      "totalElements": "4",
+      "totalPages": "1",
+      "currentPage": "1",
+      "cursor": "2"
+    },
+    "rejected": [
+      {
+        "index": 0,
+        "trackNo": "YT2436521272004481",
+        "error": {
+          "code": "A0400",
+          "msg": "trackNo not registered"
+        }
+      }
+    ]
+  },
+  "msg": "Success",
+  "traceId": "6aa076b5f27740a4b4ec7a147a8a7221"
+}
