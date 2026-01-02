@@ -88,7 +88,7 @@ export default function Navbar({ onSidebarToggle, isSidebarCollapsed }: NavbarPr
   const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/auth/login");
+    router.push("/login");
     router.refresh();
   };
 
