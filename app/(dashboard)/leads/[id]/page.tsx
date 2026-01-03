@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getLead, updateLeadStatus, assignLeadAction } from "@/app/admin/leads/actions";
-import { getTeamMembersAction } from "@/app/admin/users/actions";
+import { getLead, updateLeadStatus, assignLeadAction } from "@/app/(dashboard)/leads/actions";
+import { getTeamMembersAction } from "@/app/(dashboard)/users/actions";
 import { UserDisplay, Lead, LeadStatus } from "@/lib/types";
 import { Button } from "@/components/ui/button"; 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

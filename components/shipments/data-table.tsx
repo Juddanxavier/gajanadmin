@@ -31,7 +31,7 @@ import {
 import { TableLoadingBar } from "@/components/ui/table-loading-bar";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Plus, RefreshCw, Download, Trash } from "lucide-react";
 import { exportToCSV } from "@/lib/utils/export";
-import { exportShipmentsAction } from "@/app/admin/shipments/actions";
+import { exportShipmentsAction } from "@/app/(dashboard)/shipments/actions";
 import { downloadCSV } from "@/lib/utils";
 import { toast } from "sonner";
 

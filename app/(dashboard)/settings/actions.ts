@@ -117,7 +117,7 @@ export async function updateSettings(updates: any) {
     // Clear settings cache for this tenant
     clearSettingsCache(tenantId);
 
-    revalidatePath('/admin/settings');
+    revalidatePath('/settings');
     return { success: true, data: result.data };
   } catch (error: any) {
     console.error('[updateSettings] Error:', error);

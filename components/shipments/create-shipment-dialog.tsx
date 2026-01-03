@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { createShipmentAction, searchUsers, searchCarriers } from "@/app/admin/shipments/actions";
+import { createShipmentAction, searchUsers, searchCarriers } from "@/app/(dashboard)/shipments/actions";
 import { toast } from "sonner";
 import { Loader2, Search, X, Truck, User, Package, DollarSign, Mail, Phone, CheckCircle2 } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";

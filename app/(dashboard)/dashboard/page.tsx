@@ -84,7 +84,7 @@ export default async function AdminPage() {
             Overview of your logistics operations.
           </p>
         </div>
-        <Link href="/admin/shipments">
+        <Link href="/shipments">
              <Button>
                 <Plus className="mr-2 h-4 w-4" /> New Shipment
              </Button>
@@ -134,7 +134,7 @@ export default async function AdminPage() {
                         <Truck className="h-4 w-4 text-secondary-foreground" />
                       </div>
                       <div className="flex-1 space-y-1">
-                        <Link href={`/admin/shipments/${s.id}`} className="hover:underline">
+                        <Link href={`/shipments/${s.id}`} className="hover:underline">
                             <p className="text-sm font-medium leading-none">
                             {s.carrier_tracking_code}
                             </p>
@@ -152,7 +152,7 @@ export default async function AdminPage() {
             </div>
             {recentShipments.length > 0 && (
                 <div className="mt-4 pt-2 border-t flex justify-end">
-                    <Link href="/admin/shipments" className="text-sm text-primary flex items-center hover:underline">
+                    <Link href="/shipments" className="text-sm text-primary flex items-center hover:underline">
                         View All <ArrowRight className="ml-1 h-3 w-3" />
                     </Link>
                 </div>
@@ -168,7 +168,7 @@ export default async function AdminPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Link href="/admin/shipments">
+            <Link href="/shipments">
                 <Button variant="outline" className="w-full justify-start h-auto py-3">
                     <Package className="mr-2 h-4 w-4" />
                     <div className="flex flex-col items-start">
@@ -178,7 +178,7 @@ export default async function AdminPage() {
                 </Button>
             </Link>
             
-            <Link href="/admin/leads">
+            <Link href="/leads">
                 <Button variant="outline" className="w-full justify-start h-auto py-3">
                     <Users className="mr-2 h-4 w-4" />
                     <div className="flex flex-col items-start">
@@ -188,7 +188,7 @@ export default async function AdminPage() {
                 </Button>
             </Link>
 
-            <Link href="/admin/settings">
+            <Link href="/settings">
                 <Button variant="outline" className="w-full justify-start h-auto py-3">
                     <DollarSign className="mr-2 h-4 w-4" />
                     <div className="flex flex-col items-start">

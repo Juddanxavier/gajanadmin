@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Camera, Mail, Phone, MapPin, Calendar, Package, Users, Loader2, Lock, Edit2, Check, X, Building2 } from 'lucide-react';
 import type { UserProfile, ProfileStats } from '@/lib/types';
-import { uploadAvatarAction, updateProfileAction, changePasswordAction } from '@/app/admin/profile/actions';
+import { updateProfileAction, uploadAvatarAction, changePasswordAction } from "@/app/(dashboard)/profile/actions";
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { getUserGradient } from '@/lib/utils';
@@ -49,8 +49,8 @@ export default function ProfileClient({ userId, userEmail }: ProfileClientProps)
       setLoading(true);
       try {
         const [profileModule, statsModule] = await Promise.all([
-          import('@/app/admin/profile/actions').then(m => m.getCurrentProfileAction()),
-          import('@/app/admin/profile/actions').then(m => m.getProfileStatsAction()),
+          import('@/app/(dashboard)/profile/actions').then(m => m.getCurrentProfileAction()),
+          import('@/app/(dashboard)/profile/actions').then(m => m.getProfileStatsAction()),
         ]);
 
         if (profileModule.success) {

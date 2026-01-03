@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { syncShipmentAction } from "@/app/admin/shipments/actions";
+import { syncShipmentAction } from "@/app/(dashboard)/shipments/actions";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { CarrierLogo } from "./carrier-logo";

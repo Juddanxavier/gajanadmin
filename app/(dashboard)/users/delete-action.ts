@@ -36,7 +36,7 @@ export async function deleteUser(userId: string): Promise<ActionResponse> {
 
     if (deleteError) throw deleteError;
 
-    revalidatePath("/admin/users");
+    revalidatePath("/users");
 
     return { success: true, data: undefined };
   } catch (error) {

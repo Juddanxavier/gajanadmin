@@ -128,19 +128,19 @@ export default function Navbar({ onSidebarToggle, isSidebarCollapsed }: NavbarPr
                 </div>
                 <nav className="flex-1 space-y-1 p-2">
                   <Link
-                    href="/admin"
+                    href="/dashboard"
                     className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   >
                     Dashboard
                   </Link>
                   <Link
-                    href="/admin/users"
+                    href="/users"
                     className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   >
                     Users
                   </Link>
                   <Link
-                    href="/admin/settings"
+                    href="/settings"
                     className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   >
                     Settings
@@ -230,13 +230,13 @@ export default function Navbar({ onSidebarToggle, isSidebarCollapsed }: NavbarPr
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/admin/profile" className="cursor-pointer">
+                <Link href="/profile" className="cursor-pointer">
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/admin/settings" className="cursor-pointer">
+                <Link href="/settings" className="cursor-pointer">
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Settings</span>
                 </Link>

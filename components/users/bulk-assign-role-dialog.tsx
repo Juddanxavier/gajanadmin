@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
-import { bulkAssignRole } from "@/app/admin/users/actions";
+import { bulkAssignRole } from "@/app/(dashboard)/users/actions";
 import type { Role } from "@/lib/types";
 
 interface BulkAssignRoleDialogProps {

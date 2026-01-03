@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable } from "@/components/users/data-table"; // Reuse generic DataTable
 import { columns } from "@/components/leads/columns";
 import { DataTableToolbar } from "@/components/leads/data-table-toolbar";
-import { getLeads, updateLeadStatus, getLeadStats } from "@/app/admin/leads/actions";
+import { getLeads, updateLeadStatus, getLeadStats } from "@/app/(dashboard)/leads/actions";
 import { Lead, LeadTableFilters, LeadStatus } from "@/lib/types";
 import { RowSelectionState, SortingState } from "@tanstack/react-table";
 import { toast } from "sonner";

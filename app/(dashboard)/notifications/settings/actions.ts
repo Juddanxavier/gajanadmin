@@ -81,7 +81,7 @@ export async function saveProviderConfig(
     }
 
     if (result.error) throw new Error(result.error.message);
-    revalidatePath('/admin/notifications/settings');
+    revalidatePath('/notifications/settings');
     return { success: true };
 }
 
@@ -102,7 +102,7 @@ export async function activateProvider(tenantId: string, configId: string, chann
         .eq('id', configId);
 
     if (error) throw new Error(error.message);
-    revalidatePath('/admin/notifications/settings');
+    revalidatePath('/notifications/settings');
     return { success: true };
 }
 

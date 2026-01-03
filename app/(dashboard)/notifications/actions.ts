@@ -36,7 +36,7 @@ export async function updateNotificationTemplates(
     return { success: false, error: error.message };
   }
 
-  revalidatePath('/admin/notifications');
+  revalidatePath('/notifications');
   return { success: true };
 }
 

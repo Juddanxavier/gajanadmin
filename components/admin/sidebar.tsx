@@ -47,55 +47,55 @@ interface SidebarProps {
 const navigationItems: NavigationItem[] = [
   {
     title: "Dashboard",
-    href: "/admin",
+    href: "/dashboard",
     icon: LayoutDashboard,
   },
   {
     title: "Shipments",
-    href: "/admin/shipments",
+    href: "/shipments",
     icon: Truck,
   },
   {
     title: "Leads",
-    href: "/admin/leads",
+    href: "/leads",
     icon: ShoppingBag,
   },
   {
     title: "Users",
-    href: "/admin/users",
+    href: "/users",
     icon: Users,
   },
   {
     title: "Analytics",
-    href: "/admin/shipments/analytics",
+    href: "/shipments/analytics",
     icon: BarChart3,
   },
   {
     title: "Notifications",
-    href: "/admin/notifications",
+    href: "/notifications",
     icon: Bell,
     children: [
         {
             title: "Overview",
-            href: "/admin/notifications"
+            href: "/notifications"
         },
         {
             title: "Email Setup",
-            href: "/admin/notifications/email-setup"
+            href: "/notifications/email-setup"
         },
         {
             title: "Logs",
-            href: "/admin/notifications/logs"
+            href: "/notifications/logs"
         },
         {
             title: "Settings",
-            href: "/admin/notifications/settings"
+            href: "/notifications/settings"
         }
     ]
   },
   {
     title: "Settings",
-    href: "/admin/settings",
+    href: "/settings",
     icon: Settings,
   },
 ];

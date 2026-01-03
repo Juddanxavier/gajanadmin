@@ -62,7 +62,7 @@ export function LoginForm({
 
       if (error) throw error;
       
-      router.push("/admin");
+      router.push("/dashboard");
       router.refresh();
     } catch (error: any) {
       setError(error.message || "An error occurred");
@@ -120,7 +120,7 @@ export function LoginForm({
 
       if (error) throw error;
       
-      router.push("/admin");
+      router.push("/dashboard");
       router.refresh();
     } catch (error: any) {
       setError(error.message || "Invalid code");

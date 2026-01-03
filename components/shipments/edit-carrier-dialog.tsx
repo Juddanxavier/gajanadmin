@@ -25,7 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { searchCarriers, updateShipmentCarrierAction } from "@/app/admin/shipments/actions"
+import { searchCarriers, updateShipmentCarrierAction } from "@/app/(dashboard)/shipments/actions"
 import { toast } from "sonner"
 import { useState } from "react"
 

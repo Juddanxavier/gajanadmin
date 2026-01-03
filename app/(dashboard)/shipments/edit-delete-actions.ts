@@ -71,8 +71,8 @@ export async function updateShipmentAction(
 
     if (error) throw error;
 
-    revalidatePath('/admin/shipments');
-    revalidatePath(`/admin/shipments/${id}`);
+    revalidatePath('/shipments');
+    revalidatePath(`/shipments/${id}`);
 
     return { success: true };
   } catch (error: any) {
@@ -96,7 +96,7 @@ export async function deleteShipmentAction(id: string) {
 
     if (error) throw error;
 
-    revalidatePath('/admin/shipments');
+    revalidatePath('/shipments');
 
     return { success: true };
   } catch (error: any) {
@@ -119,7 +119,7 @@ export async function bulkDeleteShipmentsAction(ids: string[]) {
 
     if (error) throw error;
 
-    revalidatePath('/admin/shipments');
+    revalidatePath('/shipments');
 
     return { success: true, count: ids.length };
   } catch (error: any) {

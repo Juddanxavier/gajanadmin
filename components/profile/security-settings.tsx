@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Loader2, Key, Shield } from 'lucide-react';
-import { changePasswordAction } from '@/app/admin/profile/actions';
+import { changePasswordAction } from '@/app/(dashboard)/profile/actions';
 import { useToast } from '@/hooks/use-toast';
 
 const passwordSchema = z.object({

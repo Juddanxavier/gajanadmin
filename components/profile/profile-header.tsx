@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Camera, Mail, Calendar } from 'lucide-react';
 import type { UserProfile, ProfileStats } from '@/lib/types';
-import { uploadAvatarAction } from '@/app/admin/profile/actions';
+import { uploadAvatarAction } from '@/app/(dashboard)/profile/actions';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 

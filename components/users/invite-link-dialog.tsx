@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Copy, Check, Loader2, Link as LinkIcon, Mail, UserPlus, Send } from 'lucide-react';
-import { inviteUserByEmailAction, generateInviteLinkAction } from '@/app/admin/users/magic-link-action';
+import { inviteUserByEmailAction, generateInviteLinkAction } from '@/app/(dashboard)/users/magic-link-action';
 import { useToast } from '@/hooks/use-toast';
 
 interface InviteLinkDialogProps {

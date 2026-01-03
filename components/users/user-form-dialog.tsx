@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2, User, Lock, Shield } from "lucide-react";
-import { createUser, updateUser, getUserDefaultTenant } from "@/app/admin/users/actions";
+import { createUser, updateUser, getUserDefaultTenant } from "@/app/(dashboard)/users/actions";
 import type { Role, Tenant, UserDisplay } from "@/lib/types";
 
 interface UserFormDialogProps {

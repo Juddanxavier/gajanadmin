@@ -21,7 +21,7 @@ import {
   getAvailableRoles,
   getAvailableTenants,
   getUserDefaultTenant,
-} from "@/app/admin/users/actions";
+} from "@/app/(dashboard)/users/actions";
 import type {
   UserDisplay,
   UserTableFilters,

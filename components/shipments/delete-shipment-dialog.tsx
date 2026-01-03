@@ -11,7 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { deleteShipmentAction } from "@/app/admin/shipments/edit-delete-actions";
+import { deleteShipmentAction } from "@/app/(dashboard)/shipments/edit-delete-actions";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 

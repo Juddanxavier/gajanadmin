@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { saveProviderConfig, activateProvider, testConnection } from '@/app/admin/notifications/settings/actions';
+import { saveProviderConfig, activateProvider, testConnection } from '@/app/(dashboard)/notifications/settings/actions';
 import { toast } from 'sonner';
 import { Loader2, Check, ExternalLink, RefreshCw } from 'lucide-react';
 

@@ -7,7 +7,7 @@ import { ChevronRight, Home } from 'lucide-react';
 
 export function AdminBreadcrumbs() {
     const pathname = usePathname();
-    const segments = pathname.split('/').filter(Boolean).slice(1); // Remove empty and 'admin' (since we start at Dashboard)
+    const segments = pathname.split('/').filter(Boolean); // No longer slicing off 'admin'
 
     const getSegmentName = (segment: string, index: number, allSegments: string[]) => {
         // ID check (UUID or long alphanumeric)
@@ -27,7 +27,7 @@ export function AdminBreadcrumbs() {
 
     return (
         <nav className="hidden sm:flex items-center space-x-1 text-sm text-muted-foreground">
-            <Link href="/admin" className="flex items-center hover:text-foreground transition-colors">
+            <Link href="/dashboard" className="flex items-center hover:text-foreground transition-colors">
                <Home className="h-4 w-4" />
             </Link>
             
@@ -35,7 +35,7 @@ export function AdminBreadcrumbs() {
 
             {segments.map((segment, index) => {
                 const isLast = index === segments.length - 1;
-                const href = `/admin/${segments.slice(0, index + 1).join('/')}`;
+                const href = `/${segments.slice(0, index + 1).join('/')}`;
                 const name = getSegmentName(segment, index, segments);
 
                 return (

@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { updateShipmentAction } from "@/app/admin/shipments/edit-delete-actions";
+import { updateShipmentAction } from "@/app/(dashboard)/shipments/edit-delete-actions";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 

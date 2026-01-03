@@ -35,7 +35,7 @@ export async function createShipmentAction(values: {
             invoiceDetails: values.amount ? { amount: values.amount } : undefined,
         });
 
-        revalidatePath('/admin/shipments');
+        revalidatePath('/shipments');
         return successResponse(shipment);
     } catch (error: any) {
         return errorResponse(error);
@@ -48,7 +48,7 @@ export async function syncShipmentAction(shipmentId: string): Promise<ActionResp
     const service = new ShipmentService(createAdminClient());
     const result = await service.syncShipment(shipmentId);
     
-    revalidatePath('/admin/shipments');
+    revalidatePath('/shipments');
     return successResponse(result);
   } catch (error: any) {
     return errorResponse(error);
@@ -62,7 +62,7 @@ export async function bulkDeleteShipmentsAction(shipmentIds: string[]): Promise<
         const service = new ShipmentService(createAdminClient());
         const result = await service.bulkDeleteShipments(shipmentIds);
 
-        revalidatePath('/admin/shipments');
+        revalidatePath('/shipments');
         return successResponse(result);
     } catch (error: any) {
         return errorResponse(error);
@@ -78,7 +78,7 @@ export async function updateShipmentCarrierAction(shipmentId: string, carrierCod
         await service.updateShipment(shipmentId, { carrier_code: carrierCode });
         const result = await service.syncShipment(shipmentId, carrierCode);
         
-        revalidatePath('/admin/shipments');
+        revalidatePath('/shipments');
         return successResponse(result);
     } catch (error: any) {
         return errorResponse(error);

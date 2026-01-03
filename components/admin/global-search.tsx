@@ -26,7 +26,7 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { useRouter } from "next/navigation";
-import { searchGlobalAction, SearchResult } from "@/app/admin/global-search-action";
+import { searchGlobalAction, SearchResult } from "@/app/(dashboard)/global-search-action";
 import { toast } from "sonner";
 
 export function GlobalSearch() {

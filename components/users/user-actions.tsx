@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Loader2 } from "lucide-react";
-import { deleteUser } from "@/app/admin/users/actions";
+import { deleteUser } from "@/app/(dashboard)/users/actions";
 import { toast } from "sonner";
 
 interface UserActionsProps {

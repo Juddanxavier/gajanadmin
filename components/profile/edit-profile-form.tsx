@@ -16,7 +16,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Loader2 } from 'lucide-react';
 import type { UserProfile } from '@/lib/types';
-import { updateProfileAction } from '@/app/admin/profile/actions';
+import { updateProfileAction } from '@/app/(dashboard)/profile/actions';
 import { useToast } from '@/hooks/use-toast';
 
 const profileSchema = z.object({

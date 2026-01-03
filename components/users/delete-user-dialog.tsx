@@ -12,7 +12,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Loader2 } from "lucide-react";
-import { deleteUser, bulkDeleteUsers } from "@/app/admin/users/actions";
+import { deleteUser, bulkDeleteUsers } from "@/app/(dashboard)/users/actions";
 import type { UserDisplay } from "@/lib/types";
 
 interface DeleteUserDialogProps {

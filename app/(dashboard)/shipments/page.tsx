@@ -5,7 +5,7 @@ import { ShipmentStatsCards } from "@/components/shipments/shipment-stats";
 import { ShipmentDataTable } from "@/components/shipments/data-table";
 import { columns, ShipmentDisplay } from "@/components/shipments/columns";
 import { CreateShipmentDialog } from "@/components/shipments/create-shipment-dialog";
-import { getShipments, getShipmentStats, bulkDeleteShipmentsAction } from "@/app/admin/shipments/actions";
+import { getShipments, getShipmentStats, bulkDeleteShipmentsAction } from "@/app/(dashboard)/shipments/actions";
 import { toast } from "sonner";
 import { SortingState, PaginationState } from "@tanstack/react-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

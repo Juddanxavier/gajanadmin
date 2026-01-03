@@ -134,8 +134,8 @@ export async function assignLeadAction(
         const service = new LeadsService(supabase);
         await service.assignLead(leadId, userId);
 
-        revalidatePath("/admin/leads");
-        revalidatePath(`/admin/leads/${leadId}`);
+        revalidatePath('/leads');
+        revalidatePath(`/leads/${leadId}`);
         return successResponse(undefined);
     } catch (error) {
         return errorResponse(error);

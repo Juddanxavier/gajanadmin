@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Mail, MessageSquare, Eye, Save, Send, Settings, Key } from "lucide-react";
 import { toast } from "sonner";
-import { updateNotificationTemplates, sendTestNotification } from "../../app/admin/notifications/actions";
+import { updateNotificationTemplates, sendTestNotification } from "../../app/(dashboard)/notifications/actions";
 
 interface NotificationTemplatesProps {
   tenantId: string;

@@ -49,7 +49,7 @@ export async function updateProfileAction(
       return { success: false, error: result.error || 'Failed to update profile' };
     }
 
-    revalidatePath('/admin/profile');
+    revalidatePath('/profile');
     return { success: true, data: undefined };
   } catch (error) {
     console.error('Error in updateProfileAction:', error);
@@ -82,7 +82,7 @@ export async function uploadAvatarAction(
       return { success: false, error: result.error || 'Failed to upload avatar' };
     }
 
-    revalidatePath('/admin/profile');
+    revalidatePath('/profile');
     return { success: true, data: { url: result.url } };
   } catch (error) {
     console.error('Error in uploadAvatarAction:', error);
