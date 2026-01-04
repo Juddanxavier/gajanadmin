@@ -45,7 +45,7 @@ export async function searchGlobalAction(query: string): Promise<ActionResponse<
                     id: s.id,
                     title: s.carrier_tracking_code,
                     subtitle: `${s.status} • ${s.customer_details?.name || 'Unknown'}`,
-                    url: `/admin/shipments/${s.id}`,
+                    url: `/shipments/${s.id}`,
                     icon: 'package'
                 });
             });
@@ -76,7 +76,7 @@ export async function searchGlobalAction(query: string): Promise<ActionResponse<
                     id: l.id,
                     title: `${l.first_name || ''} ${l.last_name || ''}`.trim() || l.email || 'Unknown Lead',
                     subtitle: l.company || l.email,
-                    url: `/admin/leads?search=${l.email}`, // Lead detail page might not exist?
+                    url: `/leads?search=${l.email}`, // Lead detail page might not exist?
                     icon: 'user'
                 });
             });

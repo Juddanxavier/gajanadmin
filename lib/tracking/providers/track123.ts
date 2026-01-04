@@ -272,6 +272,18 @@ export class Track123Provider implements ShipmentProvider {
       shipTo: data.shipTo
     });
 
+    // Extract Country Codes
+    // shipFrom/shipTo are typically objects like { country_code: "CN", city: "..." } or simple strings
+    // If strings, we can't reliably get code. If object, we try.
+    const getCountry = (loc: any) => {
+        if (!loc) return undefined;
+        if (typeof loc === 'string') return undefined; // Can't guess code from string easily without map
+        return loc.country_iso2 || loc.country_code || loc.countryCode || undefined;
+    };
+
+    const originCountry = getCountry(data.shipFrom) || data.originCountryCode;
+    const destCountry = getCountry(data.shipTo) || data.destinationCountryCode;
+
     return {
       tracking_number: t.tracking_number || data.trackNo || '',
       carrier_code: carrierCode,
@@ -279,6 +291,8 @@ export class Track123Provider implements ShipmentProvider {
       estimated_delivery: estimatedDelivery,
       latest_location: latestLocation || undefined,
       checkpoints,
+      origin_country: originCountry,
+      destination_country: destCountry,
       // Store full API response for timeline and detailed tracking
       raw_response: {
         ...data, // Full API response

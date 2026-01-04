@@ -10,7 +10,7 @@ export default function ShipmentNotFound() {
       <p className="text-muted-foreground">
         The shipment you're looking for doesn't exist or has been deleted.
       </p>
-      <Link href="/admin/shipments">
+      <Link href="/shipments">
         <Button>Back to Shipments</Button>
       </Link>
     </div>

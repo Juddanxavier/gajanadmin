@@ -12,6 +12,7 @@ import { ArrowLeft, MapPin, User, Phone, Mail, Package, CreditCard, Calendar } f
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CountryFlag } from "@/components/ui/country-flag";
 
 export function LeadDetailClient() {
   const params = useParams();
@@ -30,7 +31,7 @@ export function LeadDetailClient() {
             setLead(result.data);
         } else {
             toast.error(result.error || "Failed to load lead");
-            router.push("/admin/leads");
+            router.push("/leads");
         }
         setIsLoading(false);
     }
@@ -103,27 +104,33 @@ export function LeadDetailClient() {
         </div>
 
         {/* Hero Route Card */}
-        <div className="relative overflow-hidden rounded-xl border bg-gradient-to-br from-indigo-500/5 via-purple-500/5 to-pink-500/5 p-8 dark:from-indigo-500/10 dark:to-pink-500/10">
+        <div className="relative overflow-hidden rounded-xl border bg-gradient-to-br from-primary/5 via-primary/5 to-secondary/5 p-8">
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 md:gap-16">
                 <div className="text-center md:text-left space-y-2">
-                    <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Origin</p>
+                    <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest flex items-center justify-center md:justify-start gap-2">
+                        Origin 
+                        {lead.origin_country && <CountryFlag countryCode={lead.origin_country} className="h-3 w-4.5 rounded-[2px]" />}
+                    </p>
                     <h2 className="text-4xl md:text-5xl font-black text-foreground tracking-tight">{lead.origin_country.substring(0, 3).toUpperCase()}</h2>
                     <p className="text-sm font-medium text-foreground/80">{lead.origin_country}</p>
                 </div>
 
                 <div className="flex-1 w-full flex flex-col items-center gap-2">
                     <div className="w-full flex items-center gap-4 text-muted-foreground/30">
-                        <div className="h-2 w-2 rounded-full bg-indigo-500" />
+                        <div className="h-2 w-2 rounded-full bg-primary" />
                         <div className="h-0.5 flex-1 bg-current" />
                         <Package className="h-6 w-6 text-foreground/50" />
                         <div className="h-0.5 flex-1 bg-current" />
-                        <div className="h-2 w-2 rounded-full bg-pink-500" />
+                        <div className="h-2 w-2 rounded-full bg-primary" />
                     </div>
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Global Logistics</p>
                 </div>
 
                 <div className="text-center md:text-right space-y-2">
-                    <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Destination</p>
+                    <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest flex items-center justify-center md:justify-end gap-2">
+                        Destination
+                        {lead.destination_country && <CountryFlag countryCode={lead.destination_country} className="h-3 w-4.5 rounded-[2px]" />}
+                    </p>
                     <h2 className="text-4xl md:text-5xl font-black text-foreground tracking-tight">{lead.destination_country.substring(0, 3).toUpperCase()}</h2>
                     <p className="text-sm font-medium text-foreground/80">{lead.destination_country}</p>
                 </div>
@@ -136,7 +143,7 @@ export function LeadDetailClient() {
             <Card className="hover:shadow-md transition-shadow">
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                     <CardTitle className="text-sm font-medium text-muted-foreground">Goods Type</CardTitle>
-                    <Package className="h-4 w-4 text-indigo-500" />
+                    <Package className="h-4 w-4 text-primary" />
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">{lead.goods_type}</div>
@@ -147,7 +154,7 @@ export function LeadDetailClient() {
             <Card className="hover:shadow-md transition-shadow">
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                     <CardTitle className="text-sm font-medium text-muted-foreground">Total Weight</CardTitle>
-                    <div className="h-4 w-4 text-blue-500 font-bold text-xs border rounded flex items-center justify-center">kg</div>
+                    <div className="h-4 w-4 text-primary font-bold text-xs border rounded flex items-center justify-center">kg</div>
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">{lead.weight} <span className="text-sm font-normal text-muted-foreground">kg</span></div>
@@ -158,10 +165,10 @@ export function LeadDetailClient() {
             <Card className="hover:shadow-md transition-shadow">
                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                     <CardTitle className="text-sm font-medium text-muted-foreground">Declared Value</CardTitle>
-                    <CreditCard className="h-4 w-4 text-green-500" />
+                    <CreditCard className="h-4 w-4 text-primary" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">{formatCurrency(lead.value)}</div>
+                    <div className="text-2xl font-bold text-foreground">{formatCurrency(lead.value)}</div>
                 </CardContent>
             </Card>
             
@@ -169,7 +176,7 @@ export function LeadDetailClient() {
             <Card className="hover:shadow-md transition-shadow">
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                     <CardTitle className="text-sm font-medium text-muted-foreground">Registered</CardTitle>
-                    <Calendar className="h-4 w-4 text-orange-500" />
+                    <Calendar className="h-4 w-4 text-primary" />
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">{new Date(lead.created_at).toLocaleDateString()}</div>
@@ -194,7 +201,7 @@ export function LeadDetailClient() {
                             <div>
                                 <h3 className="font-bold text-lg">{lead.customer?.name || "Unknown User"}</h3>
                                 <p className="text-sm text-muted-foreground flex items-center gap-1">
-                                    <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" /> Active Customer
+                                    <span className="h-2 w-2 rounded-full bg-primary animate-pulse" /> Active Customer
                                 </p>
                             </div>
                         </div>

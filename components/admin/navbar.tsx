@@ -8,11 +8,13 @@ import {
   User,
   Settings,
   LogOut,
-  ChevronDown
+  ChevronDown,
+  Globe
 } from "lucide-react";
 import Link from "next/link";
 import { NotificationBell } from "../notifications/notification-bell";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { CountryFlag } from "@/components/ui/country-flag";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -43,16 +45,9 @@ export default function Navbar({ onSidebarToggle, isSidebarCollapsed }: NavbarPr
   const router = useRouter();
   const [user, setUser] = useState<{ name: string; email: string; avatar?: string } | null>(null);
   const [currentTenant, setCurrentTenant] = useState<{ name: string; country_code: string } | null>(null);
+  const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  const getFlagEmoji = (countryCode: string) => {
-    if (!countryCode) return "";
-    const codePoints = countryCode
-      .toUpperCase()
-      .split("")
-      .map((char) => 127397 + char.charCodeAt(0));
-    return String.fromCodePoint(...codePoints);
-  };
 
   useEffect(() => {
     setMounted(true);
@@ -68,16 +63,24 @@ export default function Navbar({ onSidebarToggle, isSidebarCollapsed }: NavbarPr
           avatar: authUser.user_metadata?.avatar_url,
         });
 
-        // Fetch tenant info
-        const { data: tenantData } = await supabase.rpc('get_user_tenants', {
-          user_uuid: authUser.id
-        });
-        
-        if (tenantData && tenantData.length > 0) {
-          setCurrentTenant({
-            name: tenantData[0].tenant_name,
-            country_code: tenantData[0].country_code || 'IN'
-          });
+        // Check if Global Admin
+        const { data: isAdmin } = await supabase.rpc('is_admin', { user_uuid: authUser.id });
+        if (isAdmin) {
+            setIsGlobalAdmin(true);
+        } else {
+            // Fetch tenant info only if not global admin (or fetch anyway but prioritize global badge?)
+            // Actually, global admins might want to see context. But request is "in place of tenant flag for global admin".
+            // Let's fetch tenant data regardless, but UI logic will prioritize Global Badge.
+             const { data: tenantData } = await supabase.rpc('get_user_tenants', {
+              user_uuid: authUser.id
+            });
+            
+            if (tenantData && tenantData.length > 0) {
+              setCurrentTenant({
+                name: tenantData[0].tenant_name,
+                country_code: tenantData[0].country_code || 'IN'
+              });
+            }
         }
       }
     };
@@ -98,7 +101,7 @@ export default function Navbar({ onSidebarToggle, isSidebarCollapsed }: NavbarPr
 
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-card backdrop-blur supports-[backdrop-filter]:bg-card/95">
+    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-16 items-center gap-4 px-4">
         {/* Left Section */}
         <div className="flex items-center gap-3 flex-1">
@@ -156,13 +159,21 @@ export default function Navbar({ onSidebarToggle, isSidebarCollapsed }: NavbarPr
           <nav className="hidden sm:flex items-center space-x-4 text-sm text-muted-foreground">
             <AdminBreadcrumbs />
             
-            {currentTenant && (
+            {isGlobalAdmin ? (
+               <>
+              <div className="h-4 w-px bg-border" />
+              <div className="flex items-center gap-2 bg-primary px-2 py-0.5 rounded-md border border-primary shadow-sm transition-all hover:bg-primary/90">
+                <Globe className="h-3.5 w-3.5 text-primary-foreground" />
+                <span className="text-primary-foreground font-semibold tracking-wide text-xs uppercase">
+                  Global Admin
+                </span>
+              </div>
+              </>
+            ) : currentTenant && (
               <>
               <div className="h-4 w-px bg-border" />
               <div className="flex items-center gap-2 bg-muted/50 px-2 py-0.5 rounded-md border border-border/50 transition-all hover:bg-muted">
-                <span className="text-base leading-none select-none" title={currentTenant.country_code}>
-                  {getFlagEmoji(currentTenant.country_code)}
-                </span>
+                <CountryFlag countryCode={currentTenant.country_code} className="h-3 w-4.5 rounded-[2px]" />
                 <span className="text-foreground font-semibold tracking-tight">
                   {currentTenant.name}
                 </span>
@@ -242,7 +253,7 @@ export default function Navbar({ onSidebarToggle, isSidebarCollapsed }: NavbarPr
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
+              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive focus:text-destructive">
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Logout</span>
               </DropdownMenuItem>

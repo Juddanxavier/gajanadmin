@@ -62,7 +62,33 @@ export async function createUser(
     const canCreate = await hasPermission("users.create");
     if (!canCreate) return errorResponse(new Error("Permission denied"));
 
+    // Hierarchy Enforcement
+    const isGlobalAdmin = await isAdmin();
+    
+    // Fetch target role details to check its name/type
+    const { data: roleData, error: roleError } = await supabase
+        .from('roles')
+        .select('name')
+        .eq('id', input.role)
+        .single();
+        
+    if (roleError || !roleData) return errorResponse(new Error("Invalid role selected"));
+
+    // Rule: Only Global Admin can create 'admin' role
+    if (roleData.name === 'admin' && !isGlobalAdmin) {
+        return errorResponse(new Error("Only Global Admins can create new Admins."));
+    }
+
+    // Rule: Tenant Admins can only create users for their own tenant
+    if (!isGlobalAdmin) {
+        const userTenantIds = await getUserTenantIds();
+        if (!userTenantIds.includes(input.tenant)) {
+             return errorResponse(new Error("You can only create users for your assigned tenant."));
+        }
+    }
+
     const service = new UserService(supabase);
+    // ... existing logic ...
     const newUser = await service.createUser(input, user.id);
     if (!newUser) throw new Error("Failed to return created user");
 
@@ -73,94 +99,23 @@ export async function createUser(
   }
 }
 
-export async function updateUser(
-  userId: string,
-  input: UpdateUserInput
-): Promise<ActionResponse<UserDisplay>> {
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return errorResponse(new Error("Unauthorized"));
-
-    const canUpdate = await hasPermission("users.update");
-    if (!canUpdate) return errorResponse(new Error("Permission denied"));
-
-    const service = new UserService(supabase);
-    const updatedUser = await service.updateUser(userId, input, user.id);
-    
-    revalidatePath("/admin/users");
-    return successResponse(updatedUser || ({} as UserDisplay));
-  } catch (error) {
-    return errorResponse(error);
-  }
-}
-
-export async function deleteUser(userId: string): Promise<ActionResponse> {
-  try {
-    const supabase = await createClient();
-    const canDelete = await hasPermission("users.delete");
-    if (!canDelete) return errorResponse(new Error("Permission denied"));
-
-    const service = new UserService(supabase);
-    await service.deleteUser(userId);
-
-    revalidatePath("/admin/users");
-    return successResponse(undefined);
-  } catch (error) {
-    return errorResponse(error);
-  }
-}
-
-export async function bulkDeleteUsers(userIds: string[]): Promise<ActionResponse> {
-    try {
-        const supabase = await createClient();
-        const canDelete = await hasPermission("users.delete");
-        if (!canDelete) return errorResponse(new Error("Permission denied"));
-
-        const service = new UserService(supabase);
-        for (const id of userIds) {
-            await service.deleteUser(id);
-        }
-        revalidatePath("/admin/users");
-        return successResponse(undefined);
-    } catch (error) {
-        return errorResponse(error);
-    }
-}
-
-export async function bulkAssignRole(userIds: string[], roleId: string): Promise<ActionResponse> {
-    // Implement bulk assign via service if needed
-    // For now simple loop
-    return successResponse(undefined);
-}
-
-export async function getUserStats(): Promise<ActionResponse<UserStats>> {
-    try {
-        const supabase = await createClient();
-        const service = new UserService(supabase);
-        const stats = await service.getStats();
-        return successResponse(stats);
-    } catch (error) {
-        return errorResponse(error);
-    }
-}
-
-export async function getRoles() {
-  const supabase = await createClient();
-  const { data, error } = await supabase.from("roles").select("*").order("name");
-  if (error) throw error;
-  return data;
-}
+// ... existing code ...
 
 export async function getAvailableRoles() {
   const supabase = await createClient();
-  const userIsAdmin = await isAdmin();
+  const userIsAdmin = await isAdmin(); // true = Global Admin, false = Tenant Admin (or Staff)
   
   const { data, error } = await supabase.from("roles").select("*").order("name");
   if (error) throw error;
   
+  // Hierarchy Logic:
+  // Global Admin: Sees All
+  // Tenant Admin: Sees everything EXCEPT 'admin' (can create staff/customer)
+  // Staff: Sees nothing (or customer? usually staff don't create users)
+  
   if (!userIsAdmin) {
-    return data.filter(role => role.name === "customer");
+    // Return all except 'admin'
+    return data.filter(role => role.name !== "admin");
   }
   return data;
 }

@@ -42,7 +42,7 @@ export async function inviteUserByEmailAction(
       return { success: false, error: 'Invalid email address' };
     }
 
-    const redirectUrl = redirectTo || `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/admin/dashboard`;
+    const redirectUrl = redirectTo || `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/dashboard`;
     console.log('[inviteUserByEmailAction] Redirect URL:', redirectUrl);
 
     // Invite user using admin client - this will send an email
@@ -111,7 +111,7 @@ export async function generateInviteLinkAction(
       return { success: false, error: 'Invalid email address' };
     }
 
-    const redirectUrl = redirectTo || `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/admin/dashboard`;
+    const redirectUrl = redirectTo || `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/dashboard`;
     console.log('[generateInviteLinkAction] Redirect URL:', redirectUrl);
 
     // Generate invite link using admin client

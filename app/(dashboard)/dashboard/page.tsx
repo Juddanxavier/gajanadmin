@@ -35,35 +35,35 @@ export default async function AdminPage() {
       value: stats.in_transit.toString(),
       icon: Truck,
       description: "In Transit",
-      color: "text-blue-500"
+      color: "text-chart-1"
     },
     {
       title: "Pending Orders",
       value: stats.pending.toString(),
       icon: Clock,
       description: "Awaiting Update",
-      color: "text-orange-500"
+      color: "text-chart-2"
     },
     {
       title: "Exceptions",
       value: stats.exception.toString(),
       icon: AlertTriangle,
       description: "Attention Needed",
-      color: "text-red-500"
+      color: "text-destructive"
     },
     {
       title: "Delivered",
       value: stats.delivered.toString(),
       icon: CheckCircle2,
       description: "Total Completed",
-      color: "text-green-500"
+      color: "text-chart-3"
     },
     {
       title: "Avg Delivery",
       value: stats.avgDeliveryDays ? `${stats.avgDeliveryDays} Days` : "N/A",
       icon: TrendingUp,
       description: "Performance",
-      color: "text-purple-500"
+      color: "text-chart-4"
     },
     {
       title: "Total Tracked",

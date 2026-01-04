@@ -142,3 +142,37 @@ export async function changePasswordAction(
     return { success: false, error: 'Failed to change password' };
   }
 }
+
+/**
+ * Get user roles and context
+ */
+export async function getUserRolesAndContext(): Promise<ActionResponse<{ isGlobalAdmin: boolean; roles: string[]; tenants: any[] }>> {
+    try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return { success: false, error: 'Unauthorized' };
+
+        // 1. Check Global Admin
+        const { data: isAdmin } = await supabase.rpc('is_admin', { user_uuid: user.id });
+        const isGlobalAdmin = isAdmin === true;
+
+        // 2. Get Roles
+        const { data: roles } = await supabase.rpc('get_user_roles', { user_uuid: user.id });
+        const roleNames = roles ? roles.map((r: any) => r.role_name) : [];
+
+        // 3. Get Tenants
+        const { data: tenants } = await supabase.rpc('get_user_tenants', { user_uuid: user.id });
+        
+        return {
+            success: true,
+            data: {
+                isGlobalAdmin,
+                roles: roleNames,
+                tenants: tenants || []
+            }
+        };
+    } catch (error) {
+        console.error('Error in getUserRolesAndContext:', error);
+        return { success: false, error: 'Failed to fetch context' };
+    }
+}

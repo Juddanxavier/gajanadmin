@@ -27,6 +27,8 @@ export interface TrackingResult {
   checkpoints: TrackingCheckpoint[];
   raw_response: any;
   provider_metadata?: any;
+  origin_country?: string;
+  destination_country?: string;
 }
 
 export interface CreateShipmentParams {

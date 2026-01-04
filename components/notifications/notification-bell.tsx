@@ -111,7 +111,7 @@ export function NotificationBell() {
                 <div className="flex items-start justify-between w-full gap-2">
                   <div className="flex flex-col gap-1 flex-1">
                     <div className="flex items-center gap-2">
-                        {!n.is_read && <div className="h-2 w-2 rounded-full bg-blue-500 shrink-0" />}
+                        {!n.is_read && <div className="h-2 w-2 rounded-full bg-primary shrink-0" />}
                         <span className="font-semibold text-sm line-clamp-1">{n.title}</span>
                     </div>
                     <p className="text-xs text-muted-foreground line-clamp-2">{n.message}</p>
@@ -146,7 +146,7 @@ export function NotificationBell() {
 
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild className="cursor-pointer justify-center py-2 text-xs font-medium text-primary hover:bg-muted">
-            <Link href="/admin/notifications">View all notifications</Link>
+            <Link href="/notifications">View all notifications</Link>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

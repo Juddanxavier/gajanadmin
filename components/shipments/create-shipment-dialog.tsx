@@ -162,7 +162,7 @@ export function CreateShipmentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[650px]">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader className="space-y-1">
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Package className="h-5 w-5 text-primary" />
@@ -232,7 +232,7 @@ export function CreateShipmentDialog({
                               )}
                           </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-[500px] p-0" align="start">
+                      <PopoverContent className="w-80 md:w-[30rem] p-0" align="start">
                           <Command shouldFilter={false}>
                               <CommandInput 
                                   placeholder="Search courier..." 
@@ -327,7 +327,7 @@ export function CreateShipmentDialog({
                               )}
                           </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-[500px] p-0" align="start">
+                      <PopoverContent className="w-80 md:w-[30rem] p-0" align="start">
                           <Command shouldFilter={false}>
                               <CommandInput 
                                   placeholder="Search by name, email..." 

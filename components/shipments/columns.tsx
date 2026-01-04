@@ -20,6 +20,7 @@ import { format } from "date-fns";
 import { CarrierLogo } from "./carrier-logo";
 import { EditShipmentDialog } from "./edit-shipment-dialog";
 import { DeleteShipmentDialog } from "./delete-shipment-dialog";
+import { CountryFlag } from "@/components/ui/country-flag";
 
 // Type definition matching the join in actions.ts: select('*, user:user_id(email, id)')
 export type ShipmentDisplay = {
@@ -92,7 +93,7 @@ export const columns: ColumnDef<ShipmentDisplay>[] = [
     header: "Tracking Code",
     cell: ({ row }) => (
       <a 
-        href={`/admin/shipments/${row.original.id}`}
+        href={`/shipments/${row.original.id}`}
         className="font-medium hover:underline text-primary"
       >
         {row.getValue("carrier_tracking_code")}
@@ -126,7 +127,14 @@ export const columns: ColumnDef<ShipmentDisplay>[] = [
     cell: ({ row }) => {
         const raw = row.original.raw_response;
         const origin = raw?.ship_from || raw?.shipFrom || row.original.origin_country || '-';
-        return <div className="text-xs text-muted-foreground">{origin}</div>;
+        // Fallback: If origin string is exactly 2 chars (e.g. "CN"), use it as code.
+        const countryCode = row.original.origin_country || (typeof origin === 'string' && origin.length === 2 ? origin : undefined);
+        return (
+            <div className="flex items-center gap-2">
+                {countryCode && countryCode.length === 2 && <CountryFlag countryCode={countryCode} className="h-3 w-4.5 rounded-[2px] shrink-0" />}
+                <span className="text-xs text-muted-foreground truncate max-w-[120px]" title={origin}>{origin}</span>
+            </div>
+        );
     },
   },
   {
@@ -136,7 +144,14 @@ export const columns: ColumnDef<ShipmentDisplay>[] = [
         const raw = row.original.raw_response;
         // Prioritize latest_location (actual city) over country code
         const destination = row.original.latest_location || raw?.ship_to || raw?.shipTo || row.original.destination_country || '-';
-        return <div className="text-xs text-muted-foreground">{destination}</div>;
+        const countryCode = row.original.destination_country || (typeof destination === 'string' && destination.length === 2 ? destination : undefined);
+        
+        return (
+            <div className="flex items-center gap-2">
+                 {countryCode && countryCode.length === 2 && <CountryFlag countryCode={countryCode} className="h-3 w-4.5 rounded-[2px] shrink-0" />}
+                <span className="text-xs text-muted-foreground truncate max-w-[120px]" title={destination}>{destination}</span>
+            </div>
+        );
     },
   },
   {

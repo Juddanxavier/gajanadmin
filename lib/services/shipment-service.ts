@@ -99,6 +99,8 @@ export class ShipmentService {
             invoice_details: params.invoiceDetails,
             last_synced_at: new Date().toISOString(),
             raw_response: trackingResult.raw_response,
+            origin_country: trackingResult.origin_country,
+            destination_country: trackingResult.destination_country,
         })
         .select()
         .single();
@@ -430,6 +432,8 @@ export class ShipmentService {
         latest_location: result.latest_location,
         last_synced_at: new Date().toISOString(),
         raw_response: result.raw_response,
+        origin_country: result.origin_country,
+        destination_country: result.destination_country,
     };
     if (result.carrier_code) updatePayload.carrier_id = result.carrier_code;
 

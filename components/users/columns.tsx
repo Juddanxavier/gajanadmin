@@ -218,7 +218,7 @@ export const columns: ColumnDef<UserDisplay>[] = [
               Copy user ID
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <Link href={`/admin/users/${user.id}`}>
+            <Link href={`/users/${user.id}`}>
               <DropdownMenuItem>
                 <Eye className="mr-2 h-4 w-4" />
                 View details

@@ -17,6 +17,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import Link from "next/link";
 
 import { Checkbox } from "@/components/ui/checkbox";
+import { CountryFlag } from "@/components/ui/country-flag";
 
 export const columns: ColumnDef<Lead>[] = [
   {
@@ -93,11 +94,13 @@ export const columns: ColumnDef<Lead>[] = [
     accessorKey: "route",
     header: "Route",
     cell: ({ row }) => (
-      <div className="text-sm flex items-center gap-1">
-        <span>{row.original.origin_country}</span>
-        <span className="text-muted-foreground">→</span>
-        <span>{row.original.destination_country}</span>
-      </div>
+        <div className="text-sm flex items-center gap-1.5">
+          {row.original.origin_country && <CountryFlag countryCode={row.original.origin_country} className="h-3 w-4.5 rounded-[2px]" />}
+          <span>{row.original.origin_country}</span>
+          <span className="text-muted-foreground mx-1">→</span>
+          {row.original.destination_country && <CountryFlag countryCode={row.original.destination_country} className="h-3 w-4.5 rounded-[2px]" />}
+          <span>{row.original.destination_country}</span>
+        </div>
     )
   },
   {
@@ -158,7 +161,7 @@ export const columns: ColumnDef<Lead>[] = [
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuItem asChild>
-                <Link href={`/admin/leads/${lead.id}`} className="cursor-pointer flex items-center w-full">
+                <Link href={`/leads/${lead.id}`} className="cursor-pointer flex items-center w-full">
                     <Eye className="mr-2 h-4 w-4" /> View Details
                 </Link>
             </DropdownMenuItem>

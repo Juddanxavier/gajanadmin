@@ -7,12 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Camera, Mail, Phone, MapPin, Calendar, Package, Users, Loader2, Lock, Edit2, Check, X, Building2 } from 'lucide-react';
+import { Camera, Mail, Phone, MapPin, Calendar, Package, Users, Loader2, Lock, Edit2, Check, X, Building2, Globe, Shield, ShieldCheck, User } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import type { UserProfile, ProfileStats } from '@/lib/types';
 import { updateProfileAction, uploadAvatarAction, changePasswordAction } from "@/app/(dashboard)/profile/actions";
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { getUserGradient } from '@/lib/utils';
+import { CountryFlag } from '@/components/ui/country-flag';
 
 interface ProfileClientProps {
   userId: string;
@@ -23,6 +25,7 @@ export default function ProfileClient({ userId, userEmail }: ProfileClientProps)
   const { toast } = useToast();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [stats, setStats] = useState<ProfileStats | null>(null);
+  const [context, setContext] = useState<{ isGlobalAdmin: boolean; roles: string[]; tenants: any[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
@@ -48,10 +51,12 @@ export default function ProfileClient({ userId, userEmail }: ProfileClientProps)
     async function loadData() {
       setLoading(true);
       try {
-        const [profileModule, statsModule] = await Promise.all([
+        const [profileModule, statsModule, contextModule] = await Promise.all([
           import('@/app/(dashboard)/profile/actions').then(m => m.getCurrentProfileAction()),
           import('@/app/(dashboard)/profile/actions').then(m => m.getProfileStatsAction()),
+          import('@/app/(dashboard)/profile/actions').then(m => m.getUserRolesAndContext()),
         ]);
+
 
         if (profileModule.success) {
           setProfile(profileModule.data);
@@ -63,6 +68,7 @@ export default function ProfileClient({ userId, userEmail }: ProfileClientProps)
           setCountry(profileModule.data.country || '');
         }
         if (statsModule.success) setStats(statsModule.data);
+        if (contextModule.success) setContext(contextModule.data);
       } catch (error) {
         console.error('Error loading profile data:', error);
       } finally {
@@ -211,34 +217,83 @@ export default function ProfileClient({ userId, userEmail }: ProfileClientProps)
             <div className="flex-1 pt-16 sm:pt-4">
               <div className="flex items-start justify-between">
                 <div className="space-y-2">
-                  <h1 className="text-2xl font-bold">{profile?.display_name || 'User'}</h1>
-                  {profile?.company && (
-                    <div className="flex items-center gap-1 text-sm text-foreground">
-                      <Building2 className="h-4 w-4" />
-                      <span>{profile.company}</span>
-                    </div>
-                  )}
-                  <div className="flex flex-wrap items-center gap-3 text-sm text-foreground">
-                    <div className="flex items-center gap-1">
-                      <Mail className="h-4 w-4" />
-                      <span>{userEmail}</span>
-                    </div>
+                  {/* Name & Role */}
+                  <div className="flex items-center gap-3 mb-0.5">
+                      <h1 className="text-2xl font-bold leading-none">
+                        {profile?.display_name || 'User'}
+                      </h1>
+                      {context?.isGlobalAdmin ? (
+                           <Badge variant="default" className="bg-primary hover:bg-primary/90 text-primary-foreground gap-1 px-2 h-6">
+                              <Globe className="h-3 w-3" /> <span className="text-[10px] uppercase font-bold tracking-wider">Global Admin</span>
+                           </Badge>
+                      ) : ( 
+                          context?.roles?.map(role => (
+                              <Badge key={role} variant="destructive" className="gap-1 px-2 h-6 capitalize">
+                                  {role === 'admin' ? <ShieldCheck className="h-3 w-3" /> : <User className="h-3 w-3" />}
+                                  <span className="text-[10px] uppercase font-bold tracking-wider">{role}</span>
+                              </Badge>
+                          ))
+                      )}
+                  </div>
+                  
+                  {/* Email & Joined (Subtitle) */}
+                  <div className="flex items-center gap-2 text-foreground/90 font-medium mb-4 text-sm">
+                      <div className="flex items-center gap-1.5 hover:text-primary transition-colors">
+                          <Mail className="h-3.5 w-3.5" />
+                          <span>{userEmail}</span>
+                      </div>
+                      <span className="text-muted-foreground/40 text-lg font-light">|</span>
+                      <div className="flex items-center gap-1.5 hover:text-primary transition-colors">
+                          <Calendar className="h-3.5 w-3.5" />
+                          <span>Joined {stats?.member_since ? formatDistanceToNow(new Date(stats.member_since), { addSuffix: true }) : 'recently'}</span>
+                      </div>
+                  </div>
+
+                  {/* Badges Row (Tenant, Company, Phone, Location) */}
+                  <div className="flex flex-wrap gap-2">
+                     {/* Tenant Badge */}
+                     {context?.tenants && context.tenants.length > 0 && !context.isGlobalAdmin && (
+                        <Badge variant="outline" className="gap-2 pl-1.5 py-1 px-3 h-7 bg-background hover:bg-muted/50 transition-colors">
+                             {context.tenants[0].country_code && <CountryFlag countryCode={context.tenants[0].country_code} className="h-3.5 w-5 rounded-[2px] shadow-sm" />}
+                             <span className="font-medium text-foreground">{context.tenants[0].tenant_name}</span>
+                        </Badge>
+                     )}
+                     
+                     {/* Company Badge */}
+                     {profile?.company && (
+                        <Badge variant="outline" className="gap-2 py-1 px-3 h-7 bg-background text-foreground/80 font-normal hover:bg-muted/50 transition-colors">
+                          <Building2 className="h-3.5 w-3.5" />
+                          <span>{profile.company}</span>
+                        </Badge>
+                      )}
+
+                    {/* Phone Badge */}
                     {profile?.phone && (
-                      <div className="flex items-center gap-1">
-                        <Phone className="h-4 w-4" />
+                      <Badge variant="outline" className="gap-2 py-1 px-3 h-7 bg-background text-foreground/80 font-normal hover:bg-muted/50 transition-colors">
+                        <Phone className="h-3.5 w-3.5" />
                         <span>{profile.phone}</span>
-                      </div>
+                      </Badge>
                     )}
+
+                    {/* Location Badge */}
                     {(profile?.city || profile?.country) && (
-                      <div className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
-                        <span>{[profile.city, profile.country].filter(Boolean).join(', ')}</span>
-                      </div>
+                      <Badge variant="outline" className="gap-2  py-1 px-3 h-7 bg-background text-foreground/80 font-normal hover:bg-muted/50 transition-colors">
+                        <MapPin className="h-3.5 w-3.5" />
+                        <span>
+                            {[
+                                profile.city,
+                                (
+                                    <span key="country" className="inline-flex items-center gap-1">
+                                        {profile.country && profile.country.length === 2 && (
+                                            <CountryFlag countryCode={profile.country} className="h-2.5 w-4 rounded-[1px]" />
+                                        )}
+                                        {profile.country}
+                                    </span>
+                                )
+                            ].filter(Boolean).reduce((prev, curr) => (prev ? [prev, ', ', curr] : [curr]) as any, null)}
+                        </span>
+                      </Badge>
                     )}
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
-                      <span>Joined {stats?.member_since ? formatDistanceToNow(new Date(stats.member_since), { addSuffix: true }) : 'recently'}</span>
-                    </div>
                   </div>
                 </div>
                 <Button

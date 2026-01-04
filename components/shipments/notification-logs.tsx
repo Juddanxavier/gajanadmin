@@ -50,7 +50,7 @@ export function NotificationLogs({ logs }: NotificationLogsProps) {
             {logs.map((log) => (
               <div key={log.id} className="flex items-start gap-4 p-3 rounded-lg border bg-card/50">
                 <div className={`mt-0.5 p-2 rounded-full ${
-                    log.type === 'email' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'
+                    log.type === 'email' ? 'bg-primary/10 text-primary' : 'bg-secondary/20 text-secondary-foreground'
                 }`}>
                   {log.type === 'email' ? <Mail className="h-4 w-4" /> : <MessageSquare className="h-4 w-4" />}
                 </div>
@@ -78,7 +78,7 @@ export function NotificationLogs({ logs }: NotificationLogsProps) {
 
                 <div className="mt-0.5">
                     {log.status === 'sent' ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        <CheckCircle2 className="h-4 w-4 text-primary" />
                     ) : (
                         <AlertCircle className="h-4 w-4 text-destructive" />
                     )}

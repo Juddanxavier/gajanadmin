@@ -11,6 +11,7 @@ import { syncShipmentAction } from "../actions";
 import { toast } from "sonner";
 import { NotificationLogs } from "@/components/shipments/notification-logs";
 import { Separator } from "@/components/ui/separator";
+import { CountryFlag } from "@/components/ui/country-flag";
 
 interface ShipmentDetailsClientProps {
   shipment: any;
@@ -49,18 +50,18 @@ export function ShipmentDetailsClient({ shipment, events, logs }: ShipmentDetail
   const invoice = shipment.invoice_details || {};
   
   // Format helpers
-  const origin = raw.shipFrom || raw.ship_from || 'Unknown';
-  const destination = raw.shipTo || raw.ship_to || shipment.latest_location || 'Unknown';
-  const originCode = origin.length > 3 ? origin.substring(0, 3).toUpperCase() : "ORG";
-  const destCode = destination.length > 3 ? destination.substring(0, 3).toUpperCase() : "DST";
+  const origin = raw.shipFrom || raw.ship_from || shipment.origin_country || 'Unknown';
+  const destination = raw.shipTo || raw.ship_to || shipment.latest_location || shipment.destination_country || 'Unknown';
+  
+  // Try to get country codes from direct fields or use raw data fallback, ensuring it's a 2-char code if possible
+  const originCountryCode = shipment.origin_country || (origin && origin.length === 2 ? origin : undefined);
+  const destCountryCode = shipment.destination_country || (destination && destination.length === 2 ? destination : undefined);
 
   const gradients = [
-    "from-blue-500/5 via-cyan-500/5 to-teal-500/5",
-    "from-purple-500/5 via-pink-500/5 to-rose-500/5",
-    "from-amber-500/5 via-orange-500/5 to-red-500/5",
-    "from-emerald-500/5 via-teal-500/5 to-cyan-500/5",
-    "from-indigo-500/5 via-violet-500/5 to-purple-500/5",
-    "from-rose-500/5 via-red-500/5 to-orange-500/5"
+    "from-primary/5 via-primary/5 to-secondary/5",
+    "from-secondary/5 via-secondary/5 to-primary/5",
+    "from-accent/5 via-accent/5 to-muted/5",
+    "from-muted/5 via-muted/5 to-accent/5",
   ];
 
   // Use a stable random gradient based on shipment ID to avoid hydration mismatch/flashing
@@ -113,7 +114,10 @@ export function ShipmentDetailsClient({ shipment, events, logs }: ShipmentDetail
         <div className={`relative overflow-hidden rounded-xl border bg-gradient-to-br ${currentGradient} p-8 duration-500 transition-colors`}>
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 md:gap-16">
                 <div className="text-center md:text-left space-y-2">
-                    <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Origin</p>
+                    <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest flex items-center justify-center md:justify-start gap-2">
+                        Origin 
+                        {originCountryCode && <CountryFlag countryCode={originCountryCode} className="h-3 w-4.5 rounded-[2px]" />}
+                    </p>
                     <h2 className="text-4xl md:text-5xl font-black text-foreground tracking-tight">{origin}</h2>
                     {/* <p className="text-sm font-medium text-foreground/80">{origin}</p> */}
                 </div>
@@ -130,7 +134,10 @@ export function ShipmentDetailsClient({ shipment, events, logs }: ShipmentDetail
                 </div>
 
                 <div className="text-center md:text-right space-y-2">
-                    <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Destination</p>
+                    <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest flex items-center justify-center md:justify-end gap-2">
+                         Destination 
+                         {destCountryCode && <CountryFlag countryCode={destCountryCode} className="h-3 w-4.5 rounded-[2px]" />}
+                    </p>
                     <h2 className="text-4xl md:text-5xl font-black text-foreground tracking-tight">{destination}</h2>
                     {/* <p className="text-sm font-medium text-foreground/80">{destination}</p> */}
                 </div>
@@ -143,7 +150,7 @@ export function ShipmentDetailsClient({ shipment, events, logs }: ShipmentDetail
             <Card className="hover:shadow-md transition-shadow">
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                     <CardTitle className="text-sm font-medium text-muted-foreground">Carrier</CardTitle>
-                    <Truck className="h-4 w-4 text-blue-500" />
+                    <Truck className="h-4 w-4 text-primary" />
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold capitalize">{shipment.carrier_id}</div>
@@ -155,7 +162,7 @@ export function ShipmentDetailsClient({ shipment, events, logs }: ShipmentDetail
             <Card className="hover:shadow-md transition-shadow">
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                     <CardTitle className="text-sm font-medium text-muted-foreground">Reference</CardTitle>
-                    <Package className="h-4 w-4 text-purple-500" />
+                    <Package className="h-4 w-4 text-primary" />
                 </CardHeader>
                 <CardContent>
                     <div className="text-lg font-bold truncate" title={shipment.white_label_code}>{shipment.white_label_code}</div>
@@ -164,13 +171,13 @@ export function ShipmentDetailsClient({ shipment, events, logs }: ShipmentDetail
             </Card>
 
             {/* Invoice */}
-            <Card className="hover:shadow-md transition-shadow border-green-500/20 bg-green-500/5">
-               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                    <CardTitle className="text-sm font-medium text-green-600 dark:text-green-400">Invoice Amount</CardTitle>
-                    <DollarSign className="h-4 w-4 text-green-500" />
+            <Card className="hover:shadow-md transition-shadow border-primary/20 bg-primary/5">
+                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                    <CardTitle className="text-sm font-medium text-foreground">Invoice Amount</CardTitle>
+                    <DollarSign className="h-4 w-4 text-primary" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-black text-green-700 dark:text-green-300">
+                    <div className="text-2xl font-black text-foreground">
                         {invoice.amount || invoice.total ? `₹${invoice.amount || invoice.total}` : 'N/A'}
                     </div>
                 </CardContent>
@@ -180,7 +187,7 @@ export function ShipmentDetailsClient({ shipment, events, logs }: ShipmentDetail
             <Card className="hover:shadow-md transition-shadow">
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                     <CardTitle className="text-sm font-medium text-muted-foreground">ETA / Created</CardTitle>
-                    <Calendar className="h-4 w-4 text-orange-500" />
+                    <Calendar className="h-4 w-4 text-primary" />
                 </CardHeader>
                 <CardContent>
                     <div className="text-lg font-bold">

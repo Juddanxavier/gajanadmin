@@ -28,6 +28,20 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { useNotifications } from "@/contexts/notification-context";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+import { createClient } from "@/lib/supabase/client";
+import { LogOut } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface NavigationItem {
   title: string;
@@ -37,6 +51,12 @@ interface NavigationItem {
     title: string;
     href: string;
   }[];
+  badge?: boolean | string | number; // New: Badge support
+}
+
+interface SidebarGroup {
+  label?: string;
+  items: NavigationItem[];
 }
 
 interface SidebarProps {
@@ -44,86 +64,119 @@ interface SidebarProps {
   onToggle: () => void;
 }
 
-const navigationItems: NavigationItem[] = [
+const sidebarGroups: SidebarGroup[] = [
   {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Shipments",
-    href: "/shipments",
-    icon: Truck,
-  },
-  {
-    title: "Leads",
-    href: "/leads",
-    icon: ShoppingBag,
-  },
-  {
-    title: "Users",
-    href: "/users",
-    icon: Users,
-  },
-  {
-    title: "Analytics",
-    href: "/shipments/analytics",
-    icon: BarChart3,
-  },
-  {
-    title: "Notifications",
-    href: "/notifications",
-    icon: Bell,
-    children: [
-        {
-            title: "Overview",
-            href: "/notifications"
-        },
-        {
-            title: "Email Setup",
-            href: "/notifications/email-setup"
-        },
-        {
-            title: "Logs",
-            href: "/notifications/logs"
-        },
-        {
-            title: "Settings",
-            href: "/notifications/settings"
-        }
+    label: "Main",
+    items: [
+      {
+        title: "Dashboard",
+        href: "/dashboard",
+        icon: LayoutDashboard,
+      },
+      {
+        title: "Shipments",
+        href: "/shipments",
+        icon: Truck,
+      },
+      {
+        title: "Leads",
+        href: "/leads",
+        icon: ShoppingBag,
+      },
+      {
+        title: "Users",
+        href: "/users",
+        icon: Users,
+      },
     ]
   },
   {
-    title: "Settings",
-    href: "/settings",
-    icon: Settings,
+    label: "Analytics",
+    items: [
+      {
+        title: "Analytics",
+        href: "/shipments/analytics",
+        icon: BarChart3,
+      },
+    ]
   },
+  {
+    label: "Communication",
+    items: [
+      {
+        title: "Notifications",
+        href: "/notifications",
+        icon: Bell,
+        badge: true, // Enable dynamic badge
+        children: [
+          {
+              title: "Overview",
+              href: "/notifications"
+          },
+          {
+              title: "Email Setup",
+              href: "/notifications/email-setup"
+          },
+          {
+              title: "Logs",
+              href: "/notifications/logs"
+          },
+          {
+              title: "Settings",
+              href: "/notifications/settings"
+          }
+        ]
+      },
+    ]
+  },
+  {
+    label: "System",
+    items: [
+      {
+        title: "Settings",
+        href: "/settings",
+        icon: Settings,
+      },
+    ]
+  }
 ];
 
 export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
-  // State to track expanded items. Default to empty or based on current path?
-  // Let's just track open states for collapsibles.
-  // Ideally we might want to auto-open if a child is active.
-  // For simplicity, let's keep it controlled or uncontrolled. 
-  // Let's use a simple map for open states if we want multiple open, or just let Radix handle it if we don't need persistent state across navigations (though persistent is nice).
-  
-  // Actually, for this implementation, let's keep it simple. If we click a collapsible, it toggles.
-  // We can just rely on the Collapsible component's internal state if we don't need to force it open.
-  // BUT: if we navigate to a child, we probably want the parent open.
-  
-  // Let's derive initial open state from pathname.
-  // We can't easily auto-open efficiently without some state management, but for now let's just use uncontrolled Collapsible or specific open/onOpenChange if needed.
-  // However, simpler is often better. Let's use `defaultOpen` for the one that matches pathname.
+  const { unreadCount } = useNotifications();
+  const router = useRouter();
+  const [user, setUser] = useState<{ name: string; email: string; avatar?: string } | null>(null);
+
+  React.useEffect(() => {
+    const fetchUser = async () => {
+      const supabase = createClient();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
+        setUser({
+          name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
+          email: authUser.email || '',
+          avatar: authUser.user_metadata?.avatar_url,
+        });
+      }
+    };
+    fetchUser();
+  }, []);
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  };
 
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-40 h-screen border-r bg-background transition-all duration-300 flex flex-col",
+        "fixed left-0 top-0 z-40 h-screen border-r border-border bg-card transition-all duration-300 flex flex-col",
         isCollapsed ? "w-16" : "w-64"
       )}
     >
-      <div className="flex h-16 items-center justify-between px-4 border-b">
+      <div className="flex h-16 items-center justify-between px-4 border-b border-border shrink-0">
         {!isCollapsed && (
           <div className="flex items-center gap-2 font-bold text-lg text-primary tracking-tight">
             <Truck className="h-6 w-6" />
@@ -138,120 +191,198 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
       </div>
 
       <ScrollArea className="flex-1 px-3 py-2">
-        <nav className="space-y-1">
-          {navigationItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname === item.href || item.children?.some(child => pathname === child.href);
-            const hasChildren = item.children && item.children.length > 0;
-            
-            // If collapsed, we just show the icon.
-            // If it has children, maybe we show a tooltip with children? Or just link to main.
-            // Current design: if collapsed, clicks usually navigate or open a popover.
-            // Simplified: if collapsed, link to the main href.
-            if (isCollapsed) {
-              return (
-                <Tooltip key={item.href} delayDuration={0}>
-                  <TooltipTrigger asChild>
+        <div className="space-y-4">
+          {sidebarGroups.map((group, groupIndex) => (
+            <div key={groupIndex} className="space-y-1">
+              {!isCollapsed && group.label && (
+                <h4 className="px-2 py-1 text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider">
+                  {group.label}
+                </h4>
+              )}
+              <nav className="space-y-1">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = pathname === item.href || item.children?.some(child => pathname === child.href);
+                  const hasChildren = item.children && item.children.length > 0;
+                  const showBadge = item.badge === true && unreadCount > 0;
+                  const badgeValue = showBadge ? unreadCount : item.badge;
+
+                  if (isCollapsed) {
+                    return (
+                      <Tooltip key={item.href} delayDuration={0}>
+                        <TooltipTrigger asChild>
+                          <Link
+                            href={item.href}
+                            className={cn(
+                              "relative flex h-9 w-9 items-center justify-center rounded-md transition-colors",
+                              isActive
+                                ? "bg-primary text-primary-foreground font-medium shadow-md"
+                                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                            )}
+                          >
+                            <Icon className="h-4 w-4" />
+                            {showBadge && (
+                                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-destructive-foreground">
+                                    {unreadCount > 9 ? '9+' : unreadCount}
+                                </span>
+                            )}
+                            <span className="sr-only">{item.title}</span>
+                          </Link>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="flex items-center gap-4 bg-popover text-popover-foreground border-border">
+                          {item.title}
+                          {showBadge && (
+                              <Badge variant="destructive" className="h-5 px-1.5 text-[10px]">
+                                  {unreadCount}
+                              </Badge>
+                          )}
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  }
+
+                  // Expanded state
+                  if (hasChildren) {
+                  const isChildActive = item.children?.some(child => pathname === child.href);
+
+                    return (
+                      <Collapsible key={item.title} defaultOpen={isActive || isChildActive} className="group/collapsible">
+                          <CollapsibleTrigger asChild>
+                              <div
+                                  className={cn(
+                                  "flex items-center w-full justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors cursor-pointer hover:bg-accent hover:text-accent-foreground",
+                                  isActive && !isChildActive 
+                                  ? "text-foreground font-semibold"
+                                  : "text-muted-foreground"
+                                  )}
+                              >
+                                  <div className="flex items-center gap-3">
+                                      <Icon className="h-4 w-4" />
+                                      <span>{item.title}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {showBadge && (
+                                        <Badge variant="destructive" className="h-5 px-2 text-xs rounded-full">
+                                            {unreadCount}
+                                        </Badge>
+                                    )}
+                                    <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                                  </div>
+                              </div>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                              <div className="ml-9 mt-1 space-y-1">
+                                  {item.children?.map(child => {
+                                      const isChildItemActive = pathname === child.href;
+                                      return (
+                                          <Link
+                                              key={child.href}
+                                              href={child.href}
+                                              className={cn(
+                                                  "block rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                                                  isChildItemActive
+                                                  ? "bg-primary/10 text-primary border-r-2 border-primary rounded-r-none"
+                                                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                                              )}
+                                          >
+                                              {child.title}
+                                          </Link>
+                                      )
+                                  })}
+                              </div>
+                          </CollapsibleContent>
+                      </Collapsible>
+                    );
+                  }
+
+                  return (
                     <Link
+                      key={item.href}
                       href={item.href}
                       className={cn(
-                        "flex h-9 w-9 items-center justify-center rounded-md transition-colors",
+                        "flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors",
                         isActive
-                          ? "bg-primary text-primary-foreground font-medium shadow-md"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                       )}
                     >
-                      <Icon className="h-4 w-4" />
-                      <span className="sr-only">{item.title}</span>
+                      <div className="flex items-center gap-3">
+                        <Icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </div>
+                      {typeof badgeValue !== 'boolean' && badgeValue && (
+                         <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
+                            {badgeValue}
+                         </Badge>
+                      )}
                     </Link>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="flex items-center gap-4">
-                    {item.title}
-                  </TooltipContent>
-                </Tooltip>
-              );
-            }
-
-            // Expanded state
-            if (hasChildren) {
-             const isChildActive = item.children?.some(child => pathname === child.href);
-
-              return (
-                <Collapsible key={item.title} defaultOpen={isActive || isChildActive} className="group/collapsible">
-                    <CollapsibleTrigger asChild>
-                         <div
-                            className={cn(
-                            "flex items-center w-full justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors cursor-pointer hover:bg-muted hover:text-foreground",
-                            isActive && !isChildActive // Highlight parent only if exact match or if we want to show parent active for children too. Let's stick to styling trigger differently if open?
-                             ? "text-foreground"
-                             : "text-muted-foreground"
-                            )}
-                        >
-                            <div className="flex items-center gap-3">
-                                <Icon className="h-4 w-4" />
-                                <span>{item.title}</span>
-                            </div>
-                            <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
-                        </div>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                        <div className="ml-9 mt-1 space-y-1">
-                             {item.children?.map(child => {
-                                 const isChildItemActive = pathname === child.href;
-                                 return (
-                                     <Link
-                                        key={child.href}
-                                        href={child.href}
-                                        className={cn(
-                                            "block rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                                            isChildItemActive
-                                            ? "bg-primary/10 text-primary"
-                                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                                        )}
-                                     >
-                                        {child.title}
-                                     </Link>
-                                 )
-                             })}
-                        </div>
-                    </CollapsibleContent>
-                </Collapsible>
-              );
-            }
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                <span>{item.title}</span>
-              </Link>
-            );
-          })}
-        </nav>
+                  );
+                })}
+              </nav>
+            </div>
+          ))}
+        </div>
       </ScrollArea>
 
-      <div className="border-t p-3 bg-muted/20">
-         <div className="flex justify-center">
-             <Button
-                variant="ghost"
-                size="sm"
-                onClick={onToggle}
-                className={cn(
-                    "w-full text-muted-foreground hover:text-foreground",
-                    isCollapsed ? "px-0" : "justify-center"
-                )}
-            >
-                {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-            </Button>
-         </div>
+       {/* User Footer */}
+      <div className="border-t border-border p-3 space-y-2">
+        {user && !isCollapsed && (
+             <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="w-full justify-start px-2 h-12 hover:bg-accent hover:text-accent-foreground">
+                        <div className="flex items-center gap-3 w-full">
+                            <Avatar className="h-8 w-8">
+                                <AvatarImage src={user.avatar} />
+                                <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col items-start text-left overflow-hidden">
+                                <span className="text-sm font-medium truncate w-32">{user.name}</span>
+                                <span className="text-xs text-muted-foreground truncate w-32">{user.email}</span>
+                            </div>
+                            <Settings className="h-4 w-4 ml-auto text-muted-foreground" />
+                        </div>
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56" side="right" sideOffset={10}>
+                    <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => router.push('/settings')}>
+                        <Settings className="mr-2 h-4 w-4" />
+                        Settings
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Log out
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+             </DropdownMenu>
+        )}
+        {user && isCollapsed && (
+             <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="w-full h-10 hover:bg-accent hover:text-accent-foreground">
+                        <Avatar className="h-8 w-8">
+                            <AvatarImage src={user.avatar} />
+                            <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-56" side="right" sideOffset={10}>
+                    <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => router.push('/settings')}>
+                        <Settings className="mr-2 h-4 w-4" />
+                        Settings
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Log out
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+             </DropdownMenu>
+        )}
+
+
       </div>
     </aside>
   );
