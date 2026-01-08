@@ -25,7 +25,7 @@ export default function ProfileClient({ userId, userEmail }: ProfileClientProps)
   const { toast } = useToast();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [stats, setStats] = useState<ProfileStats | null>(null);
-  const [context, setContext] = useState<{ isGlobalAdmin: boolean; roles: string[]; tenants: any[] } | null>(null);
+  const [context, setContext] = useState<{ isGlobalAdmin: boolean; roles: string[]; tenants: any[]; isEmailVerified: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
@@ -78,10 +78,7 @@ export default function ProfileClient({ userId, userEmail }: ProfileClientProps)
     loadData();
   }, []);
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const handleAvatarUploadFile = async (file: File) => {
     setUploading(true);
     try {
       const formData = new FormData();
@@ -99,6 +96,11 @@ export default function ProfileClient({ userId, userEmail }: ProfileClientProps)
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+     const file = e.target.files?.[0];
+     if (file) await handleAvatarUploadFile(file);
   };
 
   const handleProfileSave = async () => {
@@ -169,158 +171,39 @@ export default function ProfileClient({ userId, userEmail }: ProfileClientProps)
   return (
     <div className="max-w-4xl mx-auto space-y-4">
       {/* Cover & Profile Picture - Social Media Style */}
-      <Card className="overflow-hidden border-none shadow-md">
-        {/* Cover Photo with Animated Gradient */}
-        <div 
-          className="h-48 relative animate-gradient" 
-          style={{ 
-            background: gradient,
-            backgroundSize: '200% 200%',
-          }}
-        >
-          <div className="absolute inset-0 bg-black/10" />
-        </div>
-
-        {/* Profile Section */}
-        <div className="px-6 pb-6">
-          <div className="flex flex-col sm:flex-row gap-4 -mt-20 relative">
-            {/* Avatar */}
-            <div className="relative group">
-              <Avatar className="h-32 w-32 border-4 border-background shadow-xl">
-                <AvatarImage src={profile?.avatar_url || undefined} />
-                <AvatarFallback className="text-3xl text-white" style={{ background: gradient }}>
-                  {getInitials(profile?.display_name || null, userEmail)}
-                </AvatarFallback>
-              </Avatar>
-              <label
-                htmlFor="avatar-upload"
-                className="absolute bottom-2 right-2 p-2 bg-primary text-primary-foreground rounded-full shadow-lg cursor-pointer hover:scale-110 transition-transform"
-              >
-                <Camera className="h-4 w-4" />
-                <input
-                  id="avatar-upload"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  onChange={handleAvatarUpload}
-                  disabled={uploading}
-                />
-              </label>
-              {uploading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full">
-                  <Loader2 className="h-6 w-6 text-white animate-spin" />
-                </div>
-              )}
-            </div>
-
-            {/* User Info */}
-            <div className="flex-1 pt-16 sm:pt-4">
-              <div className="flex items-start justify-between">
-                <div className="space-y-2">
-                  {/* Name & Role */}
-                  <div className="flex items-center gap-3 mb-0.5">
-                      <h1 className="text-2xl font-bold leading-none">
-                        {profile?.display_name || 'User'}
-                      </h1>
-                      {context?.isGlobalAdmin ? (
-                           <Badge variant="default" className="bg-primary hover:bg-primary/90 text-primary-foreground gap-1 px-2 h-6">
-                              <Globe className="h-3 w-3" /> <span className="text-[10px] uppercase font-bold tracking-wider">Global Admin</span>
-                           </Badge>
-                      ) : ( 
-                          context?.roles?.map(role => (
-                              <Badge key={role} variant="destructive" className="gap-1 px-2 h-6 capitalize">
-                                  {role === 'admin' ? <ShieldCheck className="h-3 w-3" /> : <User className="h-3 w-3" />}
-                                  <span className="text-[10px] uppercase font-bold tracking-wider">{role}</span>
-                              </Badge>
-                          ))
-                      )}
-                  </div>
-                  
-                  {/* Email & Joined (Subtitle) */}
-                  <div className="flex items-center gap-2 text-foreground/90 font-medium mb-4 text-sm">
-                      <div className="flex items-center gap-1.5 hover:text-primary transition-colors">
-                          <Mail className="h-3.5 w-3.5" />
-                          <span>{userEmail}</span>
-                      </div>
-                      <span className="text-muted-foreground/40 text-lg font-light">|</span>
-                      <div className="flex items-center gap-1.5 hover:text-primary transition-colors">
-                          <Calendar className="h-3.5 w-3.5" />
-                          <span>Joined {stats?.member_since ? formatDistanceToNow(new Date(stats.member_since), { addSuffix: true }) : 'recently'}</span>
-                      </div>
-                  </div>
-
-                  {/* Badges Row (Tenant, Company, Phone, Location) */}
-                  <div className="flex flex-wrap gap-2">
-                     {/* Tenant Badge */}
-                     {context?.tenants && context.tenants.length > 0 && !context.isGlobalAdmin && (
-                        <Badge variant="outline" className="gap-2 pl-1.5 py-1 px-3 h-7 bg-background hover:bg-muted/50 transition-colors">
-                             {context.tenants[0].country_code && <CountryFlag countryCode={context.tenants[0].country_code} className="h-3.5 w-5 rounded-[2px] shadow-sm" />}
-                             <span className="font-medium text-foreground">{context.tenants[0].tenant_name}</span>
-                        </Badge>
-                     )}
-                     
-                     {/* Company Badge */}
-                     {profile?.company && (
-                        <Badge variant="outline" className="gap-2 py-1 px-3 h-7 bg-background text-foreground/80 font-normal hover:bg-muted/50 transition-colors">
-                          <Building2 className="h-3.5 w-3.5" />
-                          <span>{profile.company}</span>
-                        </Badge>
-                      )}
-
-                    {/* Phone Badge */}
-                    {profile?.phone && (
-                      <Badge variant="outline" className="gap-2 py-1 px-3 h-7 bg-background text-foreground/80 font-normal hover:bg-muted/50 transition-colors">
-                        <Phone className="h-3.5 w-3.5" />
-                        <span>{profile.phone}</span>
-                      </Badge>
-                    )}
-
-                    {/* Location Badge */}
-                    {(profile?.city || profile?.country) && (
-                      <Badge variant="outline" className="gap-2  py-1 px-3 h-7 bg-background text-foreground/80 font-normal hover:bg-muted/50 transition-colors">
-                        <MapPin className="h-3.5 w-3.5" />
-                        <span>
-                            {[
-                                profile.city,
-                                (
-                                    <span key="country" className="inline-flex items-center gap-1">
-                                        {profile.country && profile.country.length === 2 && (
-                                            <CountryFlag countryCode={profile.country} className="h-2.5 w-4 rounded-[1px]" />
-                                        )}
-                                        {profile.country}
-                                    </span>
-                                )
-                            ].filter(Boolean).reduce((prev, curr) => (prev ? [prev, ', ', curr] : [curr]) as any, null)}
-                        </span>
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setEditingProfile(!editingProfile)}
-                >
-                  <Edit2 className="h-4 w-4 mr-2" />
-                  Edit Profile
-                </Button>
-              </div>
-
-              {/* Stats */}
-              <div className="flex gap-6 mt-4 pt-4 border-t">
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{stats?.total_shipments || 0}</div>
-                  <div className="text-xs text-muted-foreground">Shipments</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{stats?.total_leads || 0}</div>
-                  <div className="text-xs text-muted-foreground">Leads</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Card>
+      {/* Reusable Profile Header */}
+      <ProfileHeader             data={{
+               userId: profile.id,
+               displayName: profile.display_name || profile.full_name || 'User',
+               email: profile.email,
+               isEmailVerified: context?.isEmailVerified,
+               phone: profile.phone,
+               company: profile.company,
+               city: profile.city,
+               country: profile.country,
+               avatarUrl: profile.avatar_url,
+               roles: context?.roles || [],
+               tenants: context?.tenants?.map(t => ({ name: t.name, countryCode: t.country_code })) || [],
+               isGlobalAdmin: context?.isGlobalAdmin || false,
+               joinedAt: profile.created_at,
+               lastLogin: profile.last_sign_in_at
+             }}
+             onAvatarUpload={handleAvatarUploadFile}
+             uploading={uploading}
+             editable={true}
+      />
+      
+      {/* Edit Profile & Security Section Wrapper */}
+      <div className="flex items-center justify-end gap-2">
+         <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setEditingProfile(!editingProfile)}
+            >
+            <Edit2 className="h-4 w-4 mr-2" />
+            Edit Profile
+        </Button>
+      </div>
 
       {/* Edit Profile Card */}
       {editingProfile && (

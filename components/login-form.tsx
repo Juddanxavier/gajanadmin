@@ -13,15 +13,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-} from "@/components/ui/input-otp";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Mail, KeyRound, ArrowRight, ArrowLeft } from "lucide-react";
+import { Mail, CheckCircle2 } from "lucide-react";
+import { signInWithMagicLinkAction } from "@/app/login/actions";
 
 export function LoginForm({
   className,
@@ -29,8 +25,7 @@ export function LoginForm({
 }: React.ComponentPropsWithoutRef<"div">) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [otpCode, setOtpCode] = useState("");
-  const [isOtpSent, setIsOtpSent] = useState(false);
+  const [isLinkSent, setIsLinkSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
@@ -71,59 +66,28 @@ export function LoginForm({
     }
   };
 
-  // OTP Login Handler
-  const handleSendOtp = async (e: React.FormEvent) => {
+  // Magic Link Handler
+  const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
     if (countdown > 0) return;
 
-    const supabase = createClient();
     setIsLoading(true);
     setError(null);
 
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: false,
-        }
-      });
-
-      if (error) {
-        if (error.status === 429) {
-          setCountdown(60); // Start 60s cooldown on rate limit
-          throw new Error("Too many requests. Please try again in 60 seconds.");
-        }
-        throw error;
+      const result = await signInWithMagicLinkAction(email);
+      
+      if (!result.success) {
+         if (result.error?.includes("Rate limit")) {
+             setCountdown(60);
+         }
+         throw new Error(result.error || "Failed to send login link");
       }
       
-      setIsOtpSent(true);
-      setCountdown(60); // Start cooldown after successful send too
+      setIsLinkSent(true);
+      setCountdown(60); // Start cooldown
     } catch (error: any) {
-      setError(error.message || "Failed to send OTP");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const supabase = createClient();
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const { error } = await supabase.auth.verifyOtp({
-        email,
-        token: otpCode,
-        type: 'email',
-      });
-
-      if (error) throw error;
-      
-      router.push("/dashboard");
-      router.refresh();
-    } catch (error: any) {
-      setError(error.message || "Invalid code");
+      setError(error.message || "Failed to send magic link");
     } finally {
       setIsLoading(false);
     }
@@ -139,10 +103,13 @@ export function LoginForm({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="password" onValueChange={() => setError(null)}>
+          <Tabs defaultValue="password" onValueChange={() => {
+            setError(null);
+            setIsLinkSent(false);
+          }}>
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="password">Password</TabsTrigger>
-              <TabsTrigger value="otp">Email OTP</TabsTrigger>
+              <TabsTrigger value="magic-link">Magic Link</TabsTrigger>
             </TabsList>
 
             {/* PASSWORD TAB */}
@@ -186,16 +153,15 @@ export function LoginForm({
               </form>
             </TabsContent>
             
-            {/* OTP TAB */}
-            <TabsContent value="otp">
-               {!isOtpSent ? (
-                /* Step 1: Send Code */
-                <form onSubmit={handleSendOtp}>
+            {/* MAGIC LINK TAB */}
+            <TabsContent value="magic-link">
+               {!isLinkSent ? (
+                <form onSubmit={handleMagicLink}>
                   <div className="flex flex-col gap-6">
                     <div className="grid gap-2">
-                      <Label htmlFor="otp-email">Email</Label>
+                      <Label htmlFor="link-email">Email</Label>
                       <Input
-                        id="otp-email"
+                        id="link-email"
                         type="email"
                         placeholder="m@example.com"
                         required
@@ -205,73 +171,29 @@ export function LoginForm({
                     </div>
                     {error && <p className="text-sm text-red-500 font-medium">{error}</p>}
                     <Button type="submit" className="w-full" disabled={isLoading || countdown > 0}>
-                       {countdown > 0 ? `Resend in ${countdown}s` : (isLoading ? "Sending..." : "Send Login Code")}
-                       {!isLoading && countdown === 0 && <ArrowRight className="ml-2 h-4 w-4" />}
+                       {countdown > 0 ? `Resend in ${countdown}s` : (isLoading ? "Sending..." : "Send Login Link")}
+                       {!isLoading && countdown === 0 && <Mail className="ml-2 h-4 w-4" />}
                     </Button>
                   </div>
                 </form>
                ) : (
-                /* Step 2: Verify Code */
-                <form onSubmit={handleVerifyOtp}>
-                   <div className="flex flex-col gap-6">
-                    <div className="grid gap-2 justify-center">
-                       <div className="flex items-center justify-between w-full mb-2">
-                        <Label htmlFor="otp-code">Enter 6-digit Code</Label>
-                       </div>
-                       
-                       <div className="flex justify-center">
-                         <InputOTP 
-                            maxLength={6} 
-                            value={otpCode} 
-                            onChange={(value) => setOtpCode(value)}
-                          >
-                          <InputOTPGroup>
-                            <InputOTPSlot index={0} />
-                            <InputOTPSlot index={1} />
-                            <InputOTPSlot index={2} />
-                            <InputOTPSlot index={3} />
-                            <InputOTPSlot index={4} />
-                            <InputOTPSlot index={5} />
-                          </InputOTPGroup>
-                        </InputOTP>
-                       </div>
-
-                      <p className="text-xs text-muted-foreground text-center mt-2">
-                        We sent a code to <strong>{email}</strong>
-                      </p>
+                 <div className="flex flex-col items-center justify-center py-6 text-center animate-in fade-in zoom-in duration-300">
+                    <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center mb-4">
+                      <CheckCircle2 className="h-6 w-6 text-green-600" />
                     </div>
-                    {error && <p className="text-sm text-red-500 font-medium text-center">{error}</p>}
+                    <h3 className="text-lg font-semibold mb-2">Check your email</h3>
+                    <p className="text-muted-foreground text-sm mb-6 max-w-[250px]">
+                      We've sent a magic link to <strong>{email}</strong>. Click the link to log in.
+                    </p>
                     
-                    <Button type="submit" className="w-full" disabled={isLoading || otpCode.length !== 6}>
-                      {isLoading ? "Verifying..." : "Verify & Login"}
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setIsLinkSent(false)}
+                      className="w-full"
+                    >
+                      Use valid email
                     </Button>
-                    
-                    <div className="flex justify-between items-center mt-2">
-                       <Button 
-                        type="button" 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => setIsOtpSent(false)}
-                        disabled={isLoading}
-                        className="text-xs"
-                      >
-                        <ArrowLeft className="mr-2 h-3 w-3" /> Change Email
-                      </Button>
-                      
-                       <Button 
-                        type="button" 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={handleSendOtp}
-                        disabled={isLoading || countdown > 0}
-                        className="text-xs text-muted-foreground hover:text-primary"
-                      >
-                        {countdown > 0 ? `Resend in ${countdown}s` : "Resend Code"}
-                      </Button>
-                    </div>
-
-                  </div>
-                </form>
+                 </div>
                )}
             </TabsContent>
           </Tabs>

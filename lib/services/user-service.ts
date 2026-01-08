@@ -235,7 +235,7 @@ export class UserService {
       return this.getUserDisplay(userId);
   }
 
-  private async getUserDisplay(userId: string): Promise<UserDisplay | undefined> {
+  async getUserDisplay(userId: string): Promise<UserDisplay | undefined> {
     const { data: p, error } = await this.client
       .from("profiles")
       .select(`
@@ -253,7 +253,7 @@ export class UserService {
       email: p.email,
       name: p.display_name || p.full_name || p.email.split('@')[0],
       phone: p.phone,
-      roles: p.user_roles.map((ur: any) => ({ name: ur.role })),
+      roles: p.user_roles.map((ur: any) => ({ id: ur.role, name: ur.role })),
       tenants: p.user_tenants?.map((ut: any) => ({
         ...ut.tenants,
         code: ut.tenants.country_code

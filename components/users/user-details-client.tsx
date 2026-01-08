@@ -22,6 +22,7 @@ import {
 import Link from "next/link";
 import { UserFormDialog } from "@/components/users/user-form-dialog";
 import { UserActions } from "@/components/users/user-actions";
+import { ProfileHeader } from "@/components/shared/profile-header";
 import type { UserDisplay, Role, Tenant } from "@/lib/types";
 
 interface UserDetailsClientProps {
@@ -57,7 +58,7 @@ export function UserDetailsClient({ user, roles, tenants, isAdmin = false }: Use
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link href="/admin/users">
+            <Link href="/users">
               <Button variant="ghost" size="icon">
                 <ArrowLeft className="h-5 w-5" />
               </Button>
@@ -80,84 +81,27 @@ export function UserDetailsClient({ user, roles, tenants, isAdmin = false }: Use
 
         <Separator />
 
-        {/* User Overview Cards */}
+        <div className="mb-6">
+           <ProfileHeader 
+             data={{
+               userId: user.id,
+               displayName: user.name || 'User',
+               email: user.email,
+               isEmailVerified: !!user.email_confirmed_at,
+               phone: user.phone,
+               roles: user.roles.map(r => r.name),
+               tenants: user.tenants.map(t => ({ name: t.name, countryCode: t.code })),
+               isGlobalAdmin: user.roles.some(r => r.name === 'admin' && user.tenants.length === 0 /* heuristic for global admin in display */),
+               joinedAt: user.created_at,
+               lastLogin: user.last_sign_in_at
+             }}
+             editable={false}
+           />
+        </div>
+        
+        {/* User Overview Cards (Reduced) */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Email</CardTitle>
-              <Mail className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold truncate">{user.email}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {user.email_confirmed_at ? (
-                  <span className="flex items-center gap-1 text-green-600">
-                    <CheckCircle2 className="h-3 w-3" />
-                    Verified
-                  </span>
-                ) : (
-                  <span className="text-amber-600">Not verified</span>
-                )}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Phone</CardTitle>
-              <Phone className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {/* @ts-ignore */}
-                {user.phone || "—"}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {/* @ts-ignore */}
-                {user.phone ? "Contact number" : "Not provided"}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Last Sign In</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {user.last_sign_in_at
-                  ? new Date(user.last_sign_in_at).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })
-                  : "Never"}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {user.last_sign_in_at
-                  ? formatDate(user.last_sign_in_at)
-                  : "No sign-in activity"}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Member Since</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {new Date(user.created_at).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                })}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {formatDate(user.created_at)}
-              </p>
-            </CardContent>
-          </Card>
+          {/* Cards removed as info is now in header */}
         </div>
 
         {/* Roles and Tenants */}

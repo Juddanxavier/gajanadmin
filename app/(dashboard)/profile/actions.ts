@@ -146,7 +146,7 @@ export async function changePasswordAction(
 /**
  * Get user roles and context
  */
-export async function getUserRolesAndContext(): Promise<ActionResponse<{ isGlobalAdmin: boolean; roles: string[]; tenants: any[] }>> {
+export async function getUserRolesAndContext(): Promise<ActionResponse<{ isGlobalAdmin: boolean; roles: string[]; tenants: any[]; isEmailVerified: boolean }>> {
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
@@ -168,7 +168,8 @@ export async function getUserRolesAndContext(): Promise<ActionResponse<{ isGloba
             data: {
                 isGlobalAdmin,
                 roles: roleNames,
-                tenants: tenants || []
+                tenants: tenants || [],
+                isEmailVerified: !!user.email_confirmed_at
             }
         };
     } catch (error) {

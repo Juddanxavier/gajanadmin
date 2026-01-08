@@ -1,204 +1,171 @@
+/** @format */
 
-import { 
-  Package, 
-  AlertTriangle, 
-  TrendingUp, 
+import {
+  Package,
+  AlertTriangle,
+  TrendingUp,
   Users,
   DollarSign,
-  ShoppingCart,
   Truck,
   Clock,
   CheckCircle2,
   ArrowRight,
-  Plus
-} from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShipmentService } from "@/lib/services/shipment-service";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { formatDistanceToNow } from "date-fns";
+  Plus,
+} from 'lucide-react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { ShipmentService } from '@/lib/services/shipment-service';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { ShipmentTrendsChart } from '@/components/dashboard/shipment-trends-chart';
+import { RecentActivity } from '@/components/dashboard/recent-activity';
 
 export default async function AdminPage() {
   const shipmentService = new ShipmentService();
-  
+
   // Parallel Fetching
-  const [stats, recentShipmentsRes] = await Promise.all([
+  const [stats, recentShipmentsRes, trends] = await Promise.all([
     shipmentService.getStats(),
-    shipmentService.getShipments({ pageSize: 5, sortBy: { field: 'updated_at', direction: 'desc' } })
+    shipmentService.getShipments({
+      pageSize: 5,
+      sortBy: { field: 'updated_at', direction: 'desc' },
+    }),
+    shipmentService.getShipmentTrends(30),
   ]);
 
   const recentShipments = recentShipmentsRes.data || [];
 
   const statCards = [
     {
-      title: "Active Shipments",
+      title: 'Active Shipments',
       value: stats.in_transit.toString(),
       icon: Truck,
-      description: "In Transit",
-      color: "text-chart-1"
+      description: 'In Transit',
+      color: 'text-chart-1',
     },
     {
-      title: "Pending Orders",
+      title: 'Pending Orders',
       value: stats.pending.toString(),
       icon: Clock,
-      description: "Awaiting Update",
-      color: "text-chart-2"
+      description: 'Awaiting Update',
+      color: 'text-chart-2',
     },
     {
-      title: "Exceptions",
+      title: 'Exceptions',
       value: stats.exception.toString(),
       icon: AlertTriangle,
-      description: "Attention Needed",
-      color: "text-destructive"
+      description: 'Attention Needed',
+      color: 'text-destructive',
     },
     {
-      title: "Delivered",
+      title: 'Delivered',
       value: stats.delivered.toString(),
       icon: CheckCircle2,
-      description: "Total Completed",
-      color: "text-chart-3"
+      description: 'Total Completed',
+      color: 'text-chart-3',
     },
     {
-      title: "Avg Delivery",
-      value: stats.avgDeliveryDays ? `${stats.avgDeliveryDays} Days` : "N/A",
+      title: 'Avg Delivery',
+      value: stats.avgDeliveryDays ? `${stats.avgDeliveryDays} Days` : 'N/A',
       icon: TrendingUp,
-      description: "Performance",
-      color: "text-chart-4"
+      description: 'Performance',
+      color: 'text-chart-4',
     },
     {
-      title: "Total Tracked",
+      title: 'Total Tracked',
       value: stats.total.toString(),
       icon: Package,
-      description: "All Time",
-      color: "text-muted-foreground"
+      description: 'All Time',
+      color: 'text-muted-foreground',
     },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className='space-y-6'>
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className='flex items-center justify-between'>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">
+          <h1 className='text-3xl font-bold tracking-tight'>Dashboard</h1>
+          <p className='text-muted-foreground'>
             Overview of your logistics operations.
           </p>
         </div>
-        <Link href="/shipments">
-             <Button>
-                <Plus className="mr-2 h-4 w-4" /> New Shipment
-             </Button>
+        <Link href='/shipments'>
+          <Button>
+            <Plus className='mr-2 h-4 w-4' /> New Shipment
+          </Button>
         </Link>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {/* Bento Grid Layout - 4 Columns */}
+      <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 auto-rows-[minmax(120px,auto)]'>
+        {/* Row 1 & 2: Stats */}
         {statCards.map((stat) => {
           const Icon = stat.icon;
           return (
             <Card key={stat.title}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
+              <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+                <CardTitle className='text-sm font-medium'>
                   {stat.title}
                 </CardTitle>
                 <Icon className={`h-4 w-4 ${stat.color}`} />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
-                <p className="text-xs text-muted-foreground">
+                <div className='text-2xl font-bold'>{stat.value}</div>
+                <p className='text-xs text-muted-foreground'>
                   {stat.description}
                 </p>
               </CardContent>
             </Card>
           );
         })}
-      </div>
 
-      {/* Recent Activity & Quick Actions */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4 lg:col-span-5">
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>
-              Latest shipment updates and status changes
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentShipments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">No recent activity.</p>
-              ) : (
-                  recentShipments.map((s: any) => (
-                    <div key={s.id} className="flex items-center gap-4 border-b last:border-0 pb-3 last:pb-0">
-                      <div className="h-9 w-9 rounded-full bg-secondary flex items-center justify-center">
-                        <Truck className="h-4 w-4 text-secondary-foreground" />
-                      </div>
-                      <div className="flex-1 space-y-1">
-                        <Link href={`/shipments/${s.id}`} className="hover:underline">
-                            <p className="text-sm font-medium leading-none">
-                            {s.carrier_tracking_code}
-                            </p>
-                        </Link>
-                        <p className="text-xs text-muted-foreground">
-                          {s.latest_location || 'Location unknown'} • <span className="capitalize">{s.status.replace('_', ' ')}</span>
-                        </p>
-                      </div>
-                      <div className="text-xs text-muted-foreground font-mono">
-                         {formatDistanceToNow(new Date(s.updated_at), { addSuffix: true })}
-                      </div>
-                    </div>
-                  ))
-              )}
-            </div>
-            {recentShipments.length > 0 && (
-                <div className="mt-4 pt-2 border-t flex justify-end">
-                    <Link href="/shipments" className="text-sm text-primary flex items-center hover:underline">
-                        View All <ArrowRight className="ml-1 h-3 w-3" />
-                    </Link>
-                </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="col-span-3 lg:col-span-2">
-          <CardHeader>
+        {/* Row 2 Right: Quick Actions (Fills the gap after 6 stats) */}
+        <Card className='col-span-1 md:col-span-2 lg:col-span-2 flex flex-col justify-between'>
+          <CardHeader className='pb-2'>
             <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>
-              Common tasks
-            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <Link href="/shipments">
-                <Button variant="outline" className="w-full justify-start h-auto py-3">
-                    <Package className="mr-2 h-4 w-4" />
-                    <div className="flex flex-col items-start">
-                        <span className="font-semibold">Manage Shipments</span>
-                        <span className="text-xs text-muted-foreground font-normal">Track, update and delete</span>
-                    </div>
-                </Button>
+          <CardContent className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 h-full items-center'>
+            <Link href='/shipments' className='w-full'>
+              <Button
+                variant='outline'
+                className='w-full justify-start h-auto py-2'>
+                <Package className='mr-2 h-4 w-4' /> Manage
+              </Button>
             </Link>
-            
-            <Link href="/leads">
-                <Button variant="outline" className="w-full justify-start h-auto py-3">
-                    <Users className="mr-2 h-4 w-4" />
-                    <div className="flex flex-col items-start">
-                         <span className="font-semibold">Manage Leads</span>
-                         <span className="text-xs text-muted-foreground font-normal">View potential customers</span>
-                    </div>
-                </Button>
+            <Link href='/leads' className='w-full'>
+              <Button
+                variant='outline'
+                className='w-full justify-start h-auto py-2'>
+                <Users className='mr-2 h-4 w-4' /> Leads
+              </Button>
             </Link>
-
-            <Link href="/settings">
-                <Button variant="outline" className="w-full justify-start h-auto py-3">
-                    <DollarSign className="mr-2 h-4 w-4" />
-                    <div className="flex flex-col items-start">
-                        <span className="font-semibold">Configuration</span>
-                        <span className="text-xs text-muted-foreground font-normal">Update app settings</span>
-                    </div>
-                </Button>
+            <Link href='/settings' className='w-full'>
+              <Button
+                variant='outline'
+                className='w-full justify-start h-auto py-2'>
+                <DollarSign className='mr-2 h-4 w-4' /> Config
+              </Button>
             </Link>
           </CardContent>
         </Card>
+
+        {/* Row 3+: Visuals */}
+
+        {/* Main Chart - Takes 2x2 space */}
+        <div className='col-span-1 md:col-span-2 lg:col-span-2 lg:row-span-2'>
+          <ShipmentTrendsChart data={trends} />
+        </div>
+
+        {/* Live Activity - Tall Vertical Column on the right */}
+        <div className='col-span-1 md:col-span-2 lg:col-span-2 lg:row-span-2'>
+          <RecentActivity initialData={recentShipments} />
+        </div>
       </div>
     </div>
   );

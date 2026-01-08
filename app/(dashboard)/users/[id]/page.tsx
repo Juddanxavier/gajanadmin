@@ -3,40 +3,23 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { UserDetailsClient } from "@/components/users/user-details-client";
+import { UserService } from "@/lib/services/user-service";
 
 async function getUserDetails(userId: string) {
   const supabase = await createClient();
+  const service = new UserService(supabase);
+  const userDisplay = await service.getUserDisplay(userId);
+
+  if (!userDisplay) return null;
+
+  // Fetch true auth status for verification badge
   const adminClient = createAdminClient();
-
-  // Get user from auth
-  const { data: { user: authUser }, error: authError } = await adminClient.auth.admin.getUserById(userId);
-  
-  if (authError || !authUser) {
-    return null;
-  }
-
-  // Get user roles
-  const { data: userRoles } = await supabase
-    .from("user_roles")
-    .select("roles!inner(id, name, description)")
-    .eq("user_id", userId);
-
-  // Get user tenants
-  const { data: userTenants } = await supabase
-    .from("user_tenants")
-    .select("tenants!inner(id, name, code), is_default")
-    .eq("user_id", userId);
+  const { data: { user: authUser } } = await adminClient.auth.admin.getUserById(userId);
 
   return {
-    id: userId,
-    email: authUser.email || "",
-    name: authUser.user_metadata?.name || authUser.user_metadata?.full_name || null,
-    phone: authUser.phone || authUser.user_metadata?.phone || null,
-    created_at: authUser.created_at,
-    last_sign_in_at: authUser.last_sign_in_at || null,
-    email_confirmed_at: authUser.email_confirmed_at || null,
-    roles: userRoles?.map(ur => Array.isArray(ur.roles) ? ur.roles[0] : ur.roles) as any[] || [],
-    tenants: userTenants?.map(ut => ({ ...(Array.isArray(ut.tenants) ? ut.tenants[0] : ut.tenants), is_default: ut.is_default })) as any[] || [],
+    ...userDisplay,
+    name: userDisplay.name || "",
+    email_confirmed_at: authUser?.email_confirmed_at || null,
   };
 }
 
