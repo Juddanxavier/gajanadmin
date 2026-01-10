@@ -291,14 +291,75 @@ export async function getUserStats(): Promise<ActionResponse<UserStats>> {
 
     if (!user) return errorResponse(new Error('Unauthorized'));
 
+    // Get user's tenant IDs
+    // Global tenant (tenant_id IS NULL) will have empty array → sees all data
+    // India/Sri Lanka tenants will have their tenant IDs → filtered data
+    const userIsAdmin = await isAdmin();
+    const userTenantIds = await getUserTenantIds();
+
     const service = new UserService(supabase);
-    // You might want to pass tenant filtering if needed, but getStats usually gets global or tenant specific context
-    // UserService.getStats implementation seems to get global stats based on the client used.
-    // If we need tenant specific stats, we might need to adjust UserService.
-    // For now, let's just call it.
-    const stats = await service.getStats();
+
+    // If userTenantIds is empty/undefined → Global tenant → see all
+    // If userTenantIds has values → Filter by those tenant IDs
+    // Admin role also sees all (for backwards compatibility)
+    const stats = await service.getStats(
+      userIsAdmin || !userTenantIds || userTenantIds.length === 0
+        ? undefined
+        : userTenantIds
+    );
 
     return successResponse(stats);
+  } catch (error) {
+    return errorResponse(error);
+  }
+}
+
+export async function getUserTrendsAction(
+  days: number = 30
+): Promise<ActionResponse<{ date: string; total: number }[]>> {
+  try {
+    const supabase = await createClient();
+    const service = new UserService(supabase);
+    const trends = await service.getUserTrends(days);
+    return successResponse(trends);
+  } catch (error) {
+    return errorResponse(error);
+  }
+}
+
+export async function getUserDetailedTrendsAction(days: number = 30): Promise<
+  ActionResponse<
+    {
+      date: string;
+      totalUsers: number;
+      activeUsers: number;
+      admins: number;
+      tenants: number;
+    }[]
+  >
+> {
+  try {
+    const supabase = await createClient();
+
+    // Get user's tenant IDs for filtering
+    // Global tenant (tenant_id IS NULL) will have empty array → sees all trends
+    // India/Sri Lanka tenants will have their tenant IDs → filtered trends
+    const userIsAdmin = await isAdmin();
+    const userTenantIds = await getUserTenantIds();
+
+    const service = new UserService(supabase);
+
+    // If userTenantIds is empty/undefined → Global tenant → see all
+    // If userTenantIds has values → Filter by those tenant IDs
+    // Admin role also sees all (for backwards compatibility)
+    const trends = await service.getUserDetailedTrends(
+      days,
+      userIsAdmin || !userTenantIds || userTenantIds.length === 0
+        ? undefined
+        : userTenantIds
+    );
+
+    return successResponse(trends);
   } catch (error) {
     return errorResponse(error);
   }

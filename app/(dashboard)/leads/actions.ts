@@ -1,16 +1,26 @@
-"use server";
+/** @format */
 
-import { createClient } from "@/lib/supabase/server";
-import { revalidatePath } from "next/cache";
+'use server';
+
+import { createClient } from '@/lib/supabase/server';
+import { revalidatePath } from 'next/cache';
 import type {
   Lead,
   LeadTableFilters,
   PaginatedResponse,
   LeadStatus,
-} from "@/lib/types";
-import { ActionResponse, successResponse, errorResponse } from "@/lib/api-response";
-import { hasPermission, isAdmin, getUserTenantIds } from "@/lib/utils/permissions";
-import { LeadsService } from "@/lib/services/leads-service";
+} from '@/lib/types';
+import {
+  ActionResponse,
+  successResponse,
+  errorResponse,
+} from '@/lib/api-response';
+import {
+  hasPermission,
+  isAdmin,
+  getUserTenantIds,
+} from '@/lib/utils/permissions';
+import { LeadsService } from '@/lib/services/leads-service';
 
 /**
  * Get leads with pagination, filtering, and sorting
@@ -23,9 +33,11 @@ export async function getLeads(
 ): Promise<ActionResponse<PaginatedResponse<Lead>>> {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    if (!user) return errorResponse(new Error("Unauthorized"));
+    if (!user) return errorResponse(new Error('Unauthorized'));
 
     const userIsAdmin = await isAdmin();
     const userTenantIds = await getUserTenantIds();
@@ -33,13 +45,13 @@ export async function getLeads(
     const service = new LeadsService(supabase);
 
     const result = await service.getLeads(
-        page, 
-        pageSize, 
-        {
-            ...filters,
-            tenantIds: userIsAdmin ? undefined : userTenantIds
-        },
-        sortBy
+      page,
+      pageSize,
+      {
+        ...filters,
+        tenantIds: userIsAdmin ? undefined : userTenantIds,
+      },
+      sortBy
     );
 
     return successResponse(result);
@@ -57,13 +69,15 @@ export async function updateLeadStatus(
 ): Promise<ActionResponse> {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return errorResponse(new Error("Unauthorized"));
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return errorResponse(new Error('Unauthorized'));
 
-    const canUpdate = await hasPermission("leads.update");
+    const canUpdate = await hasPermission('leads.update');
     if (!canUpdate) {
-        const userIsAdmin = await isAdmin();
-        if (!userIsAdmin) return errorResponse(new Error("Permission denied"));
+      const userIsAdmin = await isAdmin();
+      if (!userIsAdmin) return errorResponse(new Error('Permission denied'));
     }
 
     const service = new LeadsService(supabase);
@@ -84,13 +98,46 @@ export async function getLeadStats() {
     const supabase = await createClient();
     const userIsAdmin = await isAdmin();
     const userTenantIds = await getUserTenantIds();
-    
+
     const service = new LeadsService(supabase);
-    const stats = await service.getStats(userIsAdmin ? undefined : userTenantIds);
-    
-    if (!stats && !userIsAdmin && userTenantIds.length === 0) return successResponse(null);
-    
-    return successResponse(stats || { total: 0, pending: 0, processing: 0, completed: 0, failed: 0, totalValue: 0 });
+    const stats = await service.getStats(
+      userIsAdmin ? undefined : userTenantIds
+    );
+
+    if (!stats && !userIsAdmin && userTenantIds.length === 0)
+      return successResponse(null);
+
+    return successResponse(
+      stats || {
+        total: 0,
+        pending: 0,
+        processing: 0,
+        completed: 0,
+        failed: 0,
+        totalValue: 0,
+      }
+    );
+  } catch (error) {
+    return errorResponse(error);
+  }
+}
+
+/**
+ * Get lead trends
+ */
+export async function getLeadTrends(days: number = 30) {
+  try {
+    const supabase = await createClient();
+    const userIsAdmin = await isAdmin();
+    const userTenantIds = await getUserTenantIds();
+
+    const service = new LeadsService(supabase);
+    const trends = await service.getLeadTrends(
+      days,
+      userIsAdmin ? undefined : userTenantIds
+    );
+
+    return successResponse(trends);
   } catch (error) {
     return errorResponse(error);
   }
@@ -106,13 +153,16 @@ export async function getLead(id: string): Promise<ActionResponse<Lead>> {
     const userTenantIds = await getUserTenantIds();
 
     const service = new LeadsService(supabase);
-    const lead = await service.getLead(id, userIsAdmin ? undefined : userTenantIds);
+    const lead = await service.getLead(
+      id,
+      userIsAdmin ? undefined : userTenantIds
+    );
 
-    if (!lead) return errorResponse(new Error("Lead not found"));
+    if (!lead) return errorResponse(new Error('Lead not found'));
 
     return successResponse(lead);
   } catch (error) {
-      return errorResponse(error);
+    return errorResponse(error);
   }
 }
 
@@ -123,21 +173,21 @@ export async function assignLeadAction(
   leadId: string,
   userId: string | null
 ): Promise<ActionResponse> {
-    try {
-        const supabase = await createClient();
-        const canAssign = await hasPermission("leads.manage"); // Assuming this permission exists or using update
-        if (!canAssign) {
-            const userIsAdmin = await isAdmin();
-            if (!userIsAdmin) return errorResponse(new Error("Permission denied"));
-        }
-
-        const service = new LeadsService(supabase);
-        await service.assignLead(leadId, userId);
-
-        revalidatePath('/leads');
-        revalidatePath(`/leads/${leadId}`);
-        return successResponse(undefined);
-    } catch (error) {
-        return errorResponse(error);
+  try {
+    const supabase = await createClient();
+    const canAssign = await hasPermission('leads.manage'); // Assuming this permission exists or using update
+    if (!canAssign) {
+      const userIsAdmin = await isAdmin();
+      if (!userIsAdmin) return errorResponse(new Error('Permission denied'));
     }
+
+    const service = new LeadsService(supabase);
+    await service.assignLead(leadId, userId);
+
+    revalidatePath('/leads');
+    revalidatePath(`/leads/${leadId}`);
+    return successResponse(undefined);
+  } catch (error) {
+    return errorResponse(error);
+  }
 }

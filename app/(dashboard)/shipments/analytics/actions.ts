@@ -1,3 +1,5 @@
+/** @format */
+
 'use server';
 
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -7,12 +9,9 @@ export async function getAnalyticsData(dateRange?: { from: Date; to: Date }) {
 
   try {
     console.log('[Analytics] Fetching data, date range:', dateRange);
-    
+
     // Build date filter
-    let query = supabase
-      .from('shipments')
-      .select('*')
-      .is('deleted_at', null); // Exclude soft-deleted shipments
+    let query = supabase.from('shipments').select('*').is('deleted_at', null); // Exclude soft-deleted shipments
 
     if (dateRange) {
       query = query
@@ -51,23 +50,29 @@ export async function getAnalyticsData(dateRange?: { from: Date; to: Date }) {
 
     // Calculate metrics
     const total = shipments.length;
-    const delivered = shipments.filter(s => s.status === 'delivered').length;
-    const inTransit = shipments.filter(s => s.status === 'in_transit').length;
-    const pending = shipments.filter(s => s.status === 'pending').length;
-    const exception = shipments.filter(s => s.status === 'exception').length;
+    const delivered = shipments.filter((s) => s.status === 'delivered').length;
+    const inTransit = shipments.filter((s) => s.status === 'in_transit').length;
+    const pending = shipments.filter((s) => s.status === 'pending').length;
+    const exception = shipments.filter((s) => s.status === 'exception').length;
 
     // Delivery rate
-    const deliveryRate = total > 0 ? ((delivered / total) * 100).toFixed(1) : '0';
+    const deliveryRate =
+      total > 0 ? ((delivered / total) * 100).toFixed(1) : '0';
 
     // Average delivery time (for delivered shipments)
-    const deliveredShipments = shipments.filter(s => s.status === 'delivered' && s.created_at && s.updated_at);
-    const avgDeliveryTime = deliveredShipments.length > 0
-      ? deliveredShipments.reduce((sum, s) => {
-          const created = new Date(s.created_at).getTime();
-          const delivered = new Date(s.updated_at).getTime();
-          return sum + (delivered - created);
-        }, 0) / deliveredShipments.length / (1000 * 60 * 60 * 24) // Convert to days
-      : 0;
+    const deliveredShipments = shipments.filter(
+      (s) => s.status === 'delivered' && s.created_at && s.updated_at
+    );
+    const avgDeliveryTime =
+      deliveredShipments.length > 0
+        ? deliveredShipments.reduce((sum, s) => {
+            const created = new Date(s.created_at).getTime();
+            const delivered = new Date(s.updated_at).getTime();
+            return sum + (delivered - created);
+          }, 0) /
+          deliveredShipments.length /
+          (1000 * 60 * 60 * 24) // Convert to days
+        : 0;
 
     // Carrier performance
     const carrierStats = shipments.reduce((acc: any, s) => {
@@ -81,29 +86,37 @@ export async function getAnalyticsData(dateRange?: { from: Date; to: Date }) {
       return acc;
     }, {});
 
-    const carrierPerformance = Object.entries(carrierStats).map(([carrier, stats]: [string, any]) => ({
-      carrier,
-      total: stats.total,
-      delivered: stats.delivered,
-      exception: stats.exception,
-      deliveryRate: ((stats.delivered / stats.total) * 100).toFixed(1),
-    }));
+    const carrierPerformance = Object.entries(carrierStats).map(
+      ([carrier, stats]: [string, any]) => ({
+        carrier,
+        total: stats.total,
+        delivered: stats.delivered,
+        exception: stats.exception,
+        deliveryRate: ((stats.delivered / stats.total) * 100).toFixed(1),
+      })
+    );
 
-    // Daily volume (last 30 days)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // Daily Trends (last 90 days or based on range)
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    const startDate = dateRange ? dateRange.from : ninetyDaysAgo;
 
-    const dailyVolume = shipments
-      .filter(s => new Date(s.created_at) >= thirtyDaysAgo)
+    const dailyTrends = shipments
+      .filter((s) => new Date(s.created_at) >= startDate)
       .reduce((acc: any, s) => {
         const date = new Date(s.created_at).toISOString().split('T')[0];
-        acc[date] = (acc[date] || 0) + 1;
+        if (!acc[date]) {
+          acc[date] = { date, total: 0, delivered: 0, exception: 0 };
+        }
+        acc[date].total++;
+        if (s.status === 'delivered') acc[date].delivered++;
+        if (s.status === 'exception') acc[date].exception++;
         return acc;
       }, {});
 
-    const volumeData = Object.entries(dailyVolume)
-      .map(([date, count]) => ({ date, count }))
-      .sort((a, b) => a.date.localeCompare(b.date));
+    const volumeData = Object.values(dailyTrends).sort((a: any, b: any) =>
+      a.date.localeCompare(b.date)
+    );
 
     console.log('[Analytics] Processed data:', {
       total,

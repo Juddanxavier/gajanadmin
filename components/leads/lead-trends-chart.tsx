@@ -5,34 +5,38 @@
 import { AreaChart } from '@/components/charts/area-chart';
 import { type ChartConfig } from '@/components/ui/chart';
 
-interface ShipmentTrendsChartProps {
+interface LeadTrendsChartProps {
   data: {
     date: string;
     total: number;
-    delivered: number;
-    exception: number;
+    converted: number;
+    lost: number;
   }[];
 }
 
 const chartConfig = {
   total: {
-    label: 'Total Created',
+    label: 'Total Leads',
     color: 'var(--chart-1)',
   },
-  delivered: {
-    label: 'Delivered',
+  converted: {
+    label: 'Converted',
     color: 'var(--chart-2)',
+  },
+  lost: {
+    label: 'Lost/Failed',
+    color: 'var(--destructive)',
   },
 } satisfies ChartConfig;
 
-export function ShipmentTrendsChart({ data }: ShipmentTrendsChartProps) {
+export function LeadTrendsChart({ data }: LeadTrendsChartProps) {
   return (
     <AreaChart
-      title='Shipment Trends'
-      description='Showing shipment volume and delivery performance over time'
+      title='Lead Analytics'
+      description='Trend analysis of new leads vs conversions'
       data={data}
       config={chartConfig}
-      dataKeys={['delivered', 'total']}
+      dataKeys={['total', 'converted', 'lost']}
       timeRangeEnabled={true}
       height='250px'
     />

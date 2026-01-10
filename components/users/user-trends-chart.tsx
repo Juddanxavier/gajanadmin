@@ -5,34 +5,28 @@
 import { AreaChart } from '@/components/charts/area-chart';
 import { type ChartConfig } from '@/components/ui/chart';
 
-interface ShipmentTrendsChartProps {
+interface UserTrendsChartProps {
   data: {
     date: string;
     total: number;
-    delivered: number;
-    exception: number;
   }[];
 }
 
 const chartConfig = {
   total: {
-    label: 'Total Created',
+    label: 'Total Users',
     color: 'var(--chart-1)',
-  },
-  delivered: {
-    label: 'Delivered',
-    color: 'var(--chart-2)',
   },
 } satisfies ChartConfig;
 
-export function ShipmentTrendsChart({ data }: ShipmentTrendsChartProps) {
+export function UserTrendsChart({ data }: UserTrendsChartProps) {
   return (
     <AreaChart
-      title='Shipment Trends'
-      description='Showing shipment volume and delivery performance over time'
+      title='User Growth'
+      description='Showing total user registrations over time'
       data={data}
       config={chartConfig}
-      dataKeys={['delivered', 'total']}
+      dataKeys={['total']}
       timeRangeEnabled={true}
       height='250px'
     />

@@ -26,11 +26,11 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 221 83% 53%;
     --radius: 0.5rem;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --chart-1: 217 91% 60%;
+    --chart-2: 142 76% 45%;
+    --chart-3: 280 87% 65%;
+    --chart-4: 31 97% 55%;
+    --chart-5: 340 82% 52%;
     --sidebar: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;
@@ -61,11 +61,11 @@
     --border: hsl(223.8136 0.0000% 15.5096%);
     --input: hsl(223.8136 0.0000% 20.3885%);
     --ring: hsl(223.8136 0.0000% 45.1519%);
-    --chart-1: hsl(211.7880 101.9718% 78.6759%);
-    --chart-2: hsl(217.4076 91.3672% 59.5787%);
-    --chart-3: hsl(221.4336 86.3731% 54.0624%);
-    --chart-4: hsl(223.6587 78.7180% 47.8635%);
-    --chart-5: hsl(226.5426 70.0108% 39.9224%);
+    --chart-1: hsl(217 91% 75%);
+    --chart-2: hsl(142 76% 50%);
+    --chart-3: hsl(280 87% 75%);
+    --chart-4: hsl(31 97% 65%);
+    --chart-5: hsl(340 82% 65%);
     --sidebar: hsl(223.8136 0.0000% 9.0527%);
     --sidebar-foreground: hsl(223.8136 0.0004% 98.0256%);
     --sidebar-primary: hsl(225.3451 84.0953% 48.9841%);
@@ -212,11 +212,11 @@
   --border: oklch(0.8822 0 0);
   --input: oklch(0.8822 0 0);
   --ring: oklch(0.4341 0.0392 41.9938);
-  --chart-1: oklch(0.4341 0.0392 41.9938);
-  --chart-2: oklch(0.9200 0.0651 74.3695);
-  --chart-3: oklch(0.9310 0 0);
-  --chart-4: oklch(0.9367 0.0523 75.5009);
-  --chart-5: oklch(0.4338 0.0437 41.6746);
+  /* Removed - using HSL format above */
+  /* Removed - using HSL format above */
+  /* Removed - using HSL format above */
+  /* Removed - using HSL format above */
+  /* Removed - using HSL format above */
   --radius: 0.5rem;
   --sidebar: oklch(0.9881 0 0);
   --sidebar-foreground: oklch(0.2645 0 0);
@@ -268,11 +268,11 @@
   --border: oklch(0.2351 0.0115 91.7467);
   --input: oklch(0.4017 0 0);
   --ring: oklch(0.9247 0.0524 66.1732);
-  --chart-1: oklch(0.9247 0.0524 66.1732);
-  --chart-2: oklch(0.3163 0.0190 63.6992);
-  --chart-3: oklch(0.2850 0 0);
-  --chart-4: oklch(0.3481 0.0219 67.0001);
-  --chart-5: oklch(0.9245 0.0533 67.0855);
+  /* Removed - using HSL format above */
+  /* Removed - using HSL format above */
+  /* Removed - using HSL format above */
+  /* Removed - using HSL format above */
+  /* Removed - using HSL format above */
   --radius: 0.5rem;
   --sidebar: oklch(0.2103 0.0059 285.8852);
   --sidebar-foreground: oklch(0.9674 0.0013 286.3752);

@@ -1,37 +1,36 @@
-"use client";
+/** @format */
 
-import * as React from "react";
-import { useEffect, useState, useOptimistic, Suspense, startTransition } from "react";
-import { Button } from "@/components/ui/button";
-import { Plus, RefreshCw, Link as LinkIcon } from "lucide-react";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { columns } from "@/components/users/columns";
-import { DataTable } from "@/components/users/data-table";
-import { DataTableToolbar } from "@/components/users/data-table-toolbar";
-import { UserStatsCards } from "@/components/users/user-stats";
-import { UserFormDialog } from "@/components/users/user-form-dialog";
-import { DeleteUserDialog } from "@/components/users/delete-user-dialog";
-import { BulkAssignRoleDialog } from "@/components/users/bulk-assign-role-dialog";
-import { InviteLinkDialog } from "@/components/users/invite-link-dialog";
+'use client';
+
+import * as React from 'react';
+import {
+  useEffect,
+  useState,
+  useOptimistic,
+  Suspense,
+  startTransition,
+} from 'react';
+import { Button } from '@/components/ui/button';
+import { Plus, RefreshCw, Link as LinkIcon } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { columns } from '@/components/users/columns';
+import { DataTable } from '@/components/users/data-table';
+import { DataTableToolbar } from '@/components/users/data-table-toolbar';
+import { UserFormDialog } from '@/components/users/user-form-dialog';
+import { DeleteUserDialog } from '@/components/users/delete-user-dialog';
+import { BulkAssignRoleDialog } from '@/components/users/bulk-assign-role-dialog';
+import { InviteLinkDialog } from '@/components/users/invite-link-dialog';
 import {
   getUsers,
-  getUserStats,
   getRoles,
   getTenants,
   getAvailableRoles,
   getAvailableTenants,
   getUserDefaultTenant,
-} from "@/app/(dashboard)/users/actions";
-import type {
-  UserDisplay,
-  UserTableFilters,
-  UserStats,
-  Role,
-  Tenant,
-} from "@/lib/types";
-import { RowSelectionState, SortingState } from "@tanstack/react-table";
-import { Card } from "@/components/ui/card";
-
+} from '@/app/(dashboard)/users/actions';
+import type { UserDisplay, UserTableFilters, Role, Tenant } from '@/lib/types';
+import { RowSelectionState, SortingState } from '@tanstack/react-table';
+import { Card } from '@/components/ui/card';
 
 function UsersPageContent() {
   const [users, setUsers] = useState<UserDisplay[]>([]);
@@ -39,7 +38,7 @@ function UsersPageContent() {
     users,
     (state, newUsers: UserDisplay[]) => newUsers
   );
-  const [stats, setStats] = useState<UserStats | null>(null);
+  // Removed stats
   const [roles, setRoles] = useState<Role[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -73,27 +72,22 @@ function UsersPageContent() {
 
   const loadData = async () => {
     try {
-      const [statsResult, rolesData, tenantsData] = await Promise.all([
-        getUserStats(),
+      const [rolesData, tenantsData] = await Promise.all([
         getAvailableRoles(),
         getAvailableTenants(),
       ]);
 
-      if (statsResult.success && statsResult.data) {
-        setStats(statsResult.data);
-      }
-      
       setRoles(rolesData);
       setTenants(tenantsData);
     } catch (error) {
-      console.error("Error loading data:", error);
+      console.error('Error loading data:', error);
     }
   };
 
   const loadUsers = async (silent = false) => {
     const isInitial = users.length === 0;
     if (isInitial && !silent) setIsLoading(true);
-    
+
     try {
       const sortBy = sorting[0]
         ? { id: sorting[0].id, desc: sorting[0].desc }
@@ -106,7 +100,7 @@ function UsersPageContent() {
         setPageCount(result.data.pageCount);
       }
     } catch (error) {
-      console.error("Error loading users:", error);
+      console.error('Error loading users:', error);
     } finally {
       if (isInitial) setIsLoading(false);
     }
@@ -118,13 +112,13 @@ function UsersPageContent() {
   };
 
   const handleTabChange = (value: string) => {
-      // If 'all', clear role filter. Else set role filter.
-      // Note: backend expects role name in filters.role
-      setFilters(prev => ({ 
-          ...prev, 
-          role: value === 'all' ? undefined : value 
-      }));
-      setPageIndex(0);
+    // If 'all', clear role filter. Else set role filter.
+    // Note: backend expects role name in filters.role
+    setFilters((prev) => ({
+      ...prev,
+      role: value === 'all' ? undefined : value,
+    }));
+    setPageIndex(0);
   };
 
   // ... (Keep existing Success handlers: handleSuccess, handleSuccessOptimistic, handleEditSuccess, etc.)
@@ -153,7 +147,7 @@ function UsersPageContent() {
   };
 
   const handleEditSuccess = (updatedUser: UserDisplay) => {
-    const updatedUsers = optimisticUsers.map(u => 
+    const updatedUsers = optimisticUsers.map((u) =>
       u.id === updatedUser.id ? updatedUser : u
     );
     startTransition(() => {
@@ -170,8 +164,10 @@ function UsersPageContent() {
   };
 
   const handleDeleteSuccess = () => {
-    const deletedIds = deletingUsers.map(u => u.id);
-    const updatedUsers = optimisticUsers.filter(u => !deletedIds.includes(u.id));
+    const deletedIds = deletingUsers.map((u) => u.id);
+    const updatedUsers = optimisticUsers.filter(
+      (u) => !deletedIds.includes(u.id)
+    );
     startTransition(() => {
       setOptimisticUsers(updatedUsers);
     });
@@ -184,7 +180,9 @@ function UsersPageContent() {
   };
 
   const handleBulkDelete = () => {
-    const selectedUsers = optimisticUsers.filter((_, index) => rowSelection[index]);
+    const selectedUsers = optimisticUsers.filter(
+      (_, index) => rowSelection[index]
+    );
     setDeletingUsers(selectedUsers);
   };
 
@@ -199,61 +197,64 @@ function UsersPageContent() {
   const selectedCount = Object.keys(rowSelection).length;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className='space-y-6'>
+      <div className='flex items-center justify-between'>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
-          <p className="text-muted-foreground">
+          <h1 className='text-3xl font-bold tracking-tight'>User Management</h1>
+          <p className='text-muted-foreground'>
             Manage users, roles, and tenant assignments
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={handleRefresh}>
-            <RefreshCw className="h-4 w-4" />
+        <div className='flex gap-2'>
+          <Button variant='outline' size='icon' onClick={handleRefresh}>
+            <RefreshCw className='h-4 w-4' />
           </Button>
-          <Button variant="outline" onClick={() => setIsInviteLinkDialogOpen(true)}>
-            <LinkIcon className="mr-2 h-4 w-4" />
+          <Button
+            variant='outline'
+            onClick={() => setIsInviteLinkDialogOpen(true)}>
+            <LinkIcon className='mr-2 h-4 w-4' />
             Invite Link
           </Button>
           <Button onClick={() => setIsCreateDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className='mr-2 h-4 w-4' />
             Add User
           </Button>
         </div>
       </div>
 
-      {stats && <UserStatsCards stats={stats} />}
-
-      <Tabs defaultValue="all" onValueChange={handleTabChange} className="w-full">
-        <TabsList className="mb-4">
-            <TabsTrigger value="all">All Users</TabsTrigger>
-            <TabsTrigger value="admin">Admins</TabsTrigger>
-            <TabsTrigger value="staff">Staff</TabsTrigger>
-            <TabsTrigger value="customer">Customers</TabsTrigger>
+      <Tabs
+        defaultValue='all'
+        onValueChange={handleTabChange}
+        className='w-full'>
+        <TabsList className='mb-4'>
+          <TabsTrigger value='all'>All Users</TabsTrigger>
+          <TabsTrigger value='admin'>Admins</TabsTrigger>
+          <TabsTrigger value='staff'>Staff</TabsTrigger>
+          <TabsTrigger value='customer'>Customers</TabsTrigger>
         </TabsList>
 
-        <Card className="p-4">
-            <DataTableToolbar
+        <Card className='p-4'>
+          <DataTableToolbar
             filters={filters}
             onFiltersChange={setFilters}
             selectedCount={selectedCount}
             onBulkDelete={selectedCount > 0 ? handleBulkDelete : undefined}
             onBulkAssignRole={
-                selectedCount > 0 ? handleBulkAssignRole : undefined
+              selectedCount > 0 ? handleBulkAssignRole : undefined
             }
             roles={roles}
             tenants={tenants}
-            />
+          />
 
-            <DataTable
+          <DataTable
             columns={columns}
             data={optimisticUsers}
             pageCount={pageCount}
             pageIndex={pageIndex}
             pageSize={pageSize}
             onPaginationChange={({ pageIndex, pageSize }) => {
-                setPageIndex(pageIndex);
-                setPageSize(pageSize);
+              setPageIndex(pageIndex);
+              setPageSize(pageSize);
             }}
             onSortingChange={setSorting}
             onRowSelectionChange={setRowSelection}
@@ -261,10 +262,10 @@ function UsersPageContent() {
             isLoading={isLoading || isPending}
             onAddNew={() => setIsCreateDialogOpen(true)}
             meta={{
-                onEdit: handleEdit,
-                onDelete: handleDelete,
+              onEdit: handleEdit,
+              onDelete: handleDelete,
             }}
-            />
+          />
         </Card>
       </Tabs>
 
@@ -310,7 +311,12 @@ function UsersPageContent() {
 
 export default function UsersPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className='flex items-center justify-center min-h-screen'>
+          Loading...
+        </div>
+      }>
       <UsersPageContent />
     </Suspense>
   );
