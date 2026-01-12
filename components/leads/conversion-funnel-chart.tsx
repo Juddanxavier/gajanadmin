@@ -94,7 +94,7 @@ export function ConversionFunnelChart({ data }: ConversionFunnelChartProps) {
   };
 
   return (
-    <Card className='h-full flex flex-col shadow-md border-border/50 bg-gradient-to-br from-background to-muted/20'>
+    <Card className='h-full flex flex-col shadow-md border-border/50 bg-card'>
       <CardHeader className='pb-4'>
         <CardTitle className='text-xl flex items-center gap-2'>
           <span className='h-2 w-2 rounded-full bg-gradient-to-r from-amber-500 to-green-500 animate-pulse'></span>
@@ -148,7 +148,7 @@ export function ConversionFunnelChart({ data }: ConversionFunnelChartProps) {
                 labelLine={false}
                 label={renderCustomLabel}
                 outerRadius={100}
-                innerRadius={60}
+                innerRadius={45}
                 fill='#8884d8'
                 dataKey='value'
                 paddingAngle={2}

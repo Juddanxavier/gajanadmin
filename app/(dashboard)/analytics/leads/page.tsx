@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import { getLeadStats, getLeadTrends } from '@/app/(dashboard)/leads/actions';
 import { LeadStatsCards } from '@/components/leads/lead-stats';
-import { LeadTrendsBarChart } from '@/components/leads/lead-trends-bar-chart';
+import { LeadTrendsInteractive } from '@/components/leads/lead-trends-interactive';
 import { ConversionFunnelChart } from '@/components/leads/conversion-funnel-chart';
 import Loading from '@/app/(dashboard)/analytics/loading';
 import {
@@ -89,7 +89,7 @@ export default function LeadsAnalyticsPage() {
       {stats && <LeadStatsCards stats={stats} trends={trends} />}
 
       <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
-        <LeadTrendsBarChart data={trends} />
+        <LeadTrendsInteractive data={trends} />
         <ConversionFunnelChart
           data={{
             pending: stats?.pending || 0,

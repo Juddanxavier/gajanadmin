@@ -1,79 +1,437 @@
-# Deploying GajanAdmin with Coolify (GitHub App)
+<!-- @format -->
 
-This guide explains how to deploy the **GajanAdmin** application using [Coolify](https://coolify.io/) with the GitHub App integration.
+# 🚀 Coolify Environment Setup Guide
 
-## Prerequisites
+## 📋 **Overview**
 
-- A **Coolify** instance installed and running.
-- A **GitHub** account with access to the `Juddanxavier/gajanadmin` repository.
-- A **Supabase** project (for database and auth).
+Coolify makes it easy to manage environment variables through its web interface.
+You can set different variables for development and production deployments.
 
-## Step 1: Connect GitHub Source
+---
 
-1. Log in to your Coolify dashboard.
-2. Navigate to **Sources**.
-3. Click **+ Add** and select **GitHub**.
-4. Create a new **GitHub App**:
-    - Give it a name (e.g., "Coolify Gajan").
-    - Use the pre-filled defaults provided by Coolify.
-    - Click **Register Now** (this redirects you to GitHub).
-5. **Install** the GitHub App on your account/organization:
-    - Select `All repositories` or specifically `Juddanxavier/gajanadmin`.
-    - Click **Install**.
-6. Back in Coolify, you should see the new source connected.
+## 🔧 **Setting Environment Variables in Coolify**
 
-## Step 2: Create the Project
+### **Method 1: Through Coolify Dashboard** (Recommended)
 
-1. Go to **Projects**.
-2. Click **+ Add** to create a new project (e.g., "Gajan Logistics").
-3. Select the project environment (e.g., "Production").
-4. Click **+ New Resource**.
-5. Select **Git Repository** (or "Public Repository" if public, but Private is better via App).
-6. Select the **GitHub App** source you just created.
-7. Choose the repository: `Juddanxavier/gajanadmin`.
-8. Branch: `main` (or your preferred deployment branch).
+#### **Step 1: Access Your Application**
 
-## Step 3: Application Configuration
+1. Log in to your Coolify dashboard
+2. Navigate to **Projects**
+3. Select your **Gajan Admin** project
+4. Click on your application
 
-Coolify will detect the project type automatically.
+#### **Step 2: Set Environment Variables**
 
-- **Build Pack**: `Nixpacks` (Recommended for Next.js) or `Heroku Buildpacks`.
-- **Port**: `3000` (Default Next.js port).
-- **Network**: ensure the domain is configured if valid.
+1. Click on **Environment Variables** tab
+2. You'll see a text editor with key-value pairs
+3. Add your variables in this format:
 
-### ⚠️ Critical: Environment Variables
+```bash
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
 
-**The deployment will FAIL** if you do not set the required environment variables. This application has strict runtime validation.
+# App Configuration
+NEXT_PUBLIC_APP_URL=https://yourdomain.com
+NEXT_PUBLIC_APP_NAME=Gajan Admin
+NODE_ENV=production
 
-Go to **Environment Variables** in your Coolify service and add the following keys. **Do not wrap values in quotes.**
+# Email Configuration
+EMAIL_FROM=noreply@yourdomain.com
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
 
-| Variable Name | Description | Where to find it |
-| :--- | :--- | :--- |
-| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase Project URL | Supabase Dashboard -> Settings -> API |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public Anon Key | Supabase Dashboard -> Settings -> API |
-| `SUPABASE_SERVICE_ROLE_KEY` | **Secret** Service Role Key | Supabase Dashboard -> Settings -> API |
-| `CRON_SECRET` | Secret for Cron Jobs to authenticate | Generate a random strong string |
-| `NODE_ENV` | Environment mode | Set to `production` |
+# Tracking APIs
+TRACK123_API_KEY=your-track123-key
+AFTERSHIP_API_KEY=your-aftership-key
 
-> [!IMPORTANT]
-> If you miss `SUPABASE_SERVICE_ROLE_KEY` or the public keys, the application will enter a **Restart Loop** because `lib/env.ts` enforces their presence at startup.
+# Feature Flags (Production)
+NEXT_PUBLIC_ENABLE_ANALYTICS=true
+NEXT_PUBLIC_ENABLE_MOCK_DATA=false
+NEXT_PUBLIC_DEBUG_MODE=false
+NEXT_PUBLIC_DISABLE_ANIMATIONS=true
+NEXT_PUBLIC_ENABLE_PROFILING=false
+NEXT_PUBLIC_ENABLE_RATE_LIMITING=true
+NEXT_PUBLIC_MAX_REQUESTS_PER_MINUTE=60
 
-## Step 4: Deploy
+# Optional: Monitoring
+NEXT_PUBLIC_SENTRY_DSN=your-sentry-dsn
+NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX
+```
 
-1. Click **Deploy**.
-2. Coolify will pull the code, build using Nixpacks, and start the container.
-3. Watch the **Deployment Logs**.
-    - If it fails during "Build", check for TypeScript errors.
-    - If it completes "Build" but restarts repeatedly, check **Application Logs** and verify Environment Variables.
+4. Click **Save**
+5. Click **Redeploy** to apply changes
 
-## Post-Deployment Verification
+---
 
-1. Open the deployed URL.
-2. Login with your Admin credentials.
-3. Check **Admin -> System Health** (if implemented) or just verify the Dashboard loads.
-4. Test a "Create Shipment" flow to ensure Database connection is write-capable.
+### **Method 2: Using .env File in Repository**
 
-## Troubleshooting
+#### **Option A: Use .env.production (Recommended)**
 
-- **Restart Loop**: almost always missing env vars. Check logs.
-- **Build Fail**: usually linting errors. Run `npm run build` locally to debug.
+1. Update `.env.production` in your repository with production values
+2. Commit and push to Git
+3. Coolify will automatically use it during build
+
+**Important**: Don't commit secrets! Use Coolify dashboard for sensitive data.
+
+#### **Option B: Create .env in Coolify**
+
+1. In Coolify, go to **Files** tab
+2. Create a new file: `.env.production.local`
+3. Add your environment variables
+4. Save and redeploy
+
+---
+
+## 🔄 **Multiple Environments in Coolify**
+
+### **Setup Development and Production**
+
+#### **1. Create Two Applications in Coolify**
+
+**Development App**:
+
+- Name: `gajan-admin-dev`
+- Branch: `develop` or `main`
+- Domain: `dev.yourdomain.com`
+
+**Production App**:
+
+- Name: `gajan-admin-prod`
+- Branch: `main` or `production`
+- Domain: `yourdomain.com`
+
+#### **2. Set Different Environment Variables**
+
+**Development App Variables**:
+
+```bash
+NODE_ENV=development
+NEXT_PUBLIC_APP_URL=https://dev.yourdomain.com
+NEXT_PUBLIC_ENABLE_MOCK_DATA=true
+NEXT_PUBLIC_DEBUG_MODE=true
+NEXT_PUBLIC_DISABLE_ANIMATIONS=false
+# ... other dev settings
+```
+
+**Production App Variables**:
+
+```bash
+NODE_ENV=production
+NEXT_PUBLIC_APP_URL=https://yourdomain.com
+NEXT_PUBLIC_ENABLE_MOCK_DATA=false
+NEXT_PUBLIC_DEBUG_MODE=false
+NEXT_PUBLIC_DISABLE_ANIMATIONS=true
+# ... other prod settings
+```
+
+---
+
+## 📝 **Complete Environment Variable List for Coolify**
+
+### **Copy this into Coolify's Environment Variables section**:
+
+```bash
+# ============================================
+# ENVIRONMENT
+# ============================================
+NODE_ENV=production
+
+# ============================================
+# SUPABASE CONFIGURATION
+# ============================================
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+# ============================================
+# APP CONFIGURATION
+# ============================================
+NEXT_PUBLIC_APP_URL=https://yourdomain.com
+NEXT_PUBLIC_APP_NAME=Gajan Admin
+
+# ============================================
+# EMAIL CONFIGURATION
+# ============================================
+EMAIL_FROM=noreply@yourdomain.com
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASSWORD=your-app-specific-password
+
+# ============================================
+# TRACKING APIS
+# ============================================
+TRACK123_API_KEY=your-track123-api-key
+AFTERSHIP_API_KEY=your-aftership-api-key
+
+# ============================================
+# FEATURE FLAGS
+# ============================================
+NEXT_PUBLIC_ENABLE_ANALYTICS=true
+NEXT_PUBLIC_ENABLE_MOCK_DATA=false
+NEXT_PUBLIC_DEBUG_MODE=false
+NEXT_PUBLIC_DISABLE_ANIMATIONS=true
+NEXT_PUBLIC_ENABLE_PROFILING=false
+NEXT_PUBLIC_ENABLE_RATE_LIMITING=true
+NEXT_PUBLIC_MAX_REQUESTS_PER_MINUTE=60
+
+# ============================================
+# MONITORING (OPTIONAL)
+# ============================================
+NEXT_PUBLIC_SENTRY_DSN=https://your-sentry-dsn@sentry.io/project-id
+NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX
+
+# ============================================
+# SECURITY (OPTIONAL)
+# ============================================
+NEXTAUTH_SECRET=your-random-secret-key-here
+NEXTAUTH_URL=https://yourdomain.com
+```
+
+---
+
+## 🔐 **Security Best Practices**
+
+### **DO**:
+
+✅ Use Coolify's environment variables for secrets  
+✅ Use different Supabase projects for dev/prod  
+✅ Enable rate limiting in production  
+✅ Use strong, unique passwords  
+✅ Rotate API keys regularly
+
+### **DON'T**:
+
+❌ Commit `.env.production.local` to Git  
+❌ Share service role keys  
+❌ Use production keys in development  
+❌ Expose secrets in client-side code
+
+---
+
+## 🚀 **Deployment Workflow**
+
+### **Initial Setup**:
+
+```bash
+# 1. Push code to Git
+git add .
+git commit -m "Add environment configuration"
+git push origin main
+
+# 2. In Coolify:
+# - Create new application
+# - Connect to your Git repository
+# - Set environment variables (see above)
+# - Deploy
+```
+
+### **Updating Environment Variables**:
+
+```bash
+# 1. In Coolify Dashboard:
+# - Go to your application
+# - Click "Environment Variables"
+# - Update the values
+# - Click "Save"
+
+# 2. Redeploy:
+# - Click "Redeploy" button
+# - Or push new code to trigger auto-deploy
+```
+
+### **Testing Changes**:
+
+```bash
+# 1. Check deployment logs in Coolify
+# 2. Visit your application URL
+# 3. Check browser console for errors
+# 4. Verify features work correctly
+```
+
+---
+
+## 📊 **Environment Variable Precedence**
+
+Coolify loads environment variables in this order (highest to lowest priority):
+
+1. **Coolify Dashboard** - Highest priority
+2. **`.env.production.local`** - In repository (gitignored)
+3. **`.env.production`** - In repository (committed)
+4. **`.env`** - In repository (committed)
+
+**Recommendation**: Use Coolify Dashboard for secrets, `.env.production` for
+non-sensitive defaults.
+
+---
+
+## 🔍 **Debugging Environment Variables**
+
+### **Check if Variables are Loaded**:
+
+Add this to your `app/layout.tsx` temporarily:
+
+```typescript
+// ONLY FOR DEBUGGING - REMOVE AFTER TESTING
+console.log('Environment Check:', {
+  nodeEnv: process.env.NODE_ENV,
+  supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  appUrl: process.env.NEXT_PUBLIC_APP_URL,
+  mockData: process.env.NEXT_PUBLIC_ENABLE_MOCK_DATA,
+});
+```
+
+### **View in Coolify**:
+
+1. Go to your application in Coolify
+2. Click on **Logs** tab
+3. Look for your console.log output
+4. Verify variables are correct
+
+### **Common Issues**:
+
+**Variables not loading**:
+
+- ✅ Check spelling (case-sensitive)
+- ✅ Restart application after changes
+- ✅ Verify `NEXT_PUBLIC_` prefix for client-side vars
+
+**Build fails**:
+
+- ✅ Check for syntax errors in env values
+- ✅ Ensure required variables are set
+- ✅ Check Coolify build logs
+
+---
+
+## 🎯 **Quick Reference**
+
+### **Required Variables** (Minimum to run):
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=your-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-key
+NODE_ENV=production
+```
+
+### **Recommended Variables** (Full functionality):
+
+```bash
+# All variables from the complete list above
+```
+
+### **Optional Variables** (Enhanced features):
+
+```bash
+NEXT_PUBLIC_SENTRY_DSN=...
+NEXT_PUBLIC_GA_ID=...
+TRACK123_API_KEY=...
+AFTERSHIP_API_KEY=...
+```
+
+---
+
+## 📱 **Coolify Mobile App**
+
+You can also manage environment variables from the Coolify mobile app:
+
+1. Download Coolify app
+2. Log in to your instance
+3. Select your application
+4. Tap **Environment**
+5. Edit variables
+6. Save and redeploy
+
+---
+
+## 🔄 **Switching Between Environments**
+
+### **Method 1: Multiple Applications** (Recommended)
+
+Create separate Coolify applications:
+
+- `gajan-admin-dev` → Development
+- `gajan-admin-staging` → Staging
+- `gajan-admin-prod` → Production
+
+Each with different environment variables.
+
+### **Method 2: Branch-Based**
+
+Use Coolify's branch deployment:
+
+- `develop` branch → Auto-deploy to dev
+- `staging` branch → Auto-deploy to staging
+- `main` branch → Auto-deploy to production
+
+Set different env vars per deployment.
+
+---
+
+## 📚 **Additional Resources**
+
+- [Coolify Documentation](https://coolify.io/docs)
+- [Next.js Environment Variables](https://nextjs.org/docs/basic-features/environment-variables)
+- [Supabase Environment Setup](https://supabase.com/docs/guides/getting-started/environment-setup)
+
+---
+
+## ✅ **Checklist**
+
+Before deploying to Coolify:
+
+- [ ] Create Coolify application
+- [ ] Connect Git repository
+- [ ] Set all required environment variables
+- [ ] Test build locally first
+- [ ] Deploy to Coolify
+- [ ] Check deployment logs
+- [ ] Verify application works
+- [ ] Test all features
+- [ ] Monitor for errors
+
+---
+
+## 🆘 **Troubleshooting**
+
+### **Deployment Fails**:
+
+```bash
+# Check Coolify build logs
+# Look for missing environment variables
+# Verify Supabase credentials are correct
+```
+
+### **App Runs but Features Don't Work**:
+
+```bash
+# Check browser console for errors
+# Verify NEXT_PUBLIC_ prefix on client variables
+# Ensure feature flags are set correctly
+```
+
+### **Environment Variables Not Updating**:
+
+```bash
+# 1. Save changes in Coolify
+# 2. Click "Redeploy" button
+# 3. Wait for deployment to complete
+# 4. Hard refresh browser (Ctrl+Shift+R)
+```
+
+---
+
+## 🎉 **You're Ready!**
+
+Your Coolify environment is now configured. Just:
+
+1. **Set environment variables in Coolify dashboard**
+2. **Deploy your application**
+3. **Monitor the deployment logs**
+4. **Visit your application URL**
+
+**Coolify will automatically use the correct environment settings!** 🚀

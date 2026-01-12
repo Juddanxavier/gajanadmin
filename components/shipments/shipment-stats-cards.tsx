@@ -67,7 +67,7 @@ export function ShipmentStatsCards({
   const statCards = [
     {
       title: 'Total Shipments',
-      value: stats.total.toString(),
+      value: (stats.total || 0).toString(),
       description: 'All time shipments',
       icon: <Package className='h-4 w-4' />,
       color: colors[0],
@@ -76,8 +76,8 @@ export function ShipmentStatsCards({
     },
     {
       title: 'Delivered',
-      value: stats.delivered.toString(),
-      description: `${stats.deliveryRate}% success rate`,
+      value: (stats.delivered || 0).toString(),
+      description: `${stats.deliveryRate || 0}% success rate`,
       icon: <CheckCircle2 className='h-4 w-4' />,
       color: colors[1],
       chartConfig: { delivered: { label: 'Delivered', color: chartColors[1] } },
@@ -85,7 +85,7 @@ export function ShipmentStatsCards({
     },
     {
       title: 'In Transit',
-      value: stats.inTransit.toString(),
+      value: (stats.inTransit || 0).toString(),
       description: 'Currently shipping',
       icon: <Truck className='h-4 w-4' />,
       color: colors[2],
@@ -94,7 +94,7 @@ export function ShipmentStatsCards({
     },
     {
       title: 'Exceptions',
-      value: stats.exception.toString(),
+      value: (stats.exception || 0).toString(),
       description: 'Attention needed',
       icon: <AlertTriangle className='h-4 w-4' />,
       color: colors[3],

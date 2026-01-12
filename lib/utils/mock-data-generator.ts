@@ -126,13 +126,13 @@ export function generateMockLeadTrends(days: number = 90): LeadTrendData[] {
     const dayOfWeek = date.getDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
-    // More leads on weekdays
+    // More leads on weekdays - increased volumes
     const baseTotal = isWeekend
-      ? Math.floor(Math.random() * 5) + 2
-      : Math.floor(Math.random() * 12) + 5;
+      ? Math.floor(Math.random() * 10) + 5
+      : Math.floor(Math.random() * 25) + 15;
 
-    // Conversion rate 20-40%
-    const conversionRate = 0.2 + Math.random() * 0.2;
+    // Conversion rate 30-50% (better conversion)
+    const conversionRate = 0.3 + Math.random() * 0.2;
     const converted = Math.floor(baseTotal * conversionRate);
 
     // Lost rate 10-20%

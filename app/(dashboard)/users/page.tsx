@@ -9,6 +9,7 @@ import {
   useOptimistic,
   Suspense,
   startTransition,
+  useCallback,
 } from 'react';
 import { Button } from '@/components/ui/button';
 import { Plus, RefreshCw, Link as LinkIcon } from 'lucide-react';
@@ -68,7 +69,7 @@ function UsersPageContent() {
     startTransition(() => {
       loadUsers();
     });
-  }, [pageIndex, pageSize, filters, sorting]);
+  }, [loadUsers]);
 
   const loadData = async () => {
     try {
@@ -84,27 +85,30 @@ function UsersPageContent() {
     }
   };
 
-  const loadUsers = async (silent = false) => {
-    const isInitial = users.length === 0;
-    if (isInitial && !silent) setIsLoading(true);
+  const loadUsers = useCallback(
+    async (silent = false) => {
+      const isInitial = users.length === 0;
+      if (isInitial && !silent) setIsLoading(true);
 
-    try {
-      const sortBy = sorting[0]
-        ? { id: sorting[0].id, desc: sorting[0].desc }
-        : undefined;
+      try {
+        const sortBy = sorting[0]
+          ? { id: sorting[0].id, desc: sorting[0].desc }
+          : undefined;
 
-      const result = await getUsers(pageIndex, pageSize, filters, sortBy);
+        const result = await getUsers(pageIndex, pageSize, filters, sortBy);
 
-      if (result.success) {
-        setUsers(result.data.data);
-        setPageCount(result.data.pageCount);
+        if (result.success) {
+          setUsers(result.data.data);
+          setPageCount(result.data.pageCount);
+        }
+      } catch (error) {
+        console.error('Error loading users:', error);
+      } finally {
+        if (isInitial) setIsLoading(false);
       }
-    } catch (error) {
-      console.error('Error loading users:', error);
-    } finally {
-      if (isInitial) setIsLoading(false);
-    }
-  };
+    },
+    [users.length, pageIndex, pageSize, filters, sorting]
+  );
 
   const handleRefresh = () => {
     loadData();
