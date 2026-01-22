@@ -25,8 +25,6 @@ import { Button } from '@/components/ui/button';
 import { ShipmentTrendsChart } from '@/components/dashboard/shipment-trends-chart';
 import { RecentActivity } from '@/components/dashboard/recent-activity';
 import { StatCard } from '@/components/dashboard/stat-card';
-import { WorldMapDotted } from '@/components/dashboard/world-map-dotted';
-import { getActiveShipmentDestinations } from '@/app/(dashboard)/shipments/actions/destinations';
 import { ShipmentRealtimeListener } from '@/components/dashboard/shipment-realtime-listener';
 import {
   getShipmentStats,
@@ -34,15 +32,15 @@ import {
   getShipments,
 } from '@/app/(dashboard)/shipments/actions';
 
+export const dynamic = 'force-dynamic';
+
 export default async function AdminPage() {
   // Parallel Fetching using Cached Actions
-  const [statsRes, recentShipmentsRes, trendsRes, destinationsRes] =
-    await Promise.all([
-      getShipmentStats(),
-      getShipments(1, 5, {}, { id: 'updated_at', desc: true }),
-      getShipmentTrendsAction(90),
-      getActiveShipmentDestinations(),
-    ]);
+  const [statsRes, recentShipmentsRes, trendsRes] = await Promise.all([
+    getShipmentStats(),
+    getShipments(1, 5, {}, { id: 'updated_at', desc: true }),
+    getShipmentTrendsAction(90),
+  ]);
 
   const stats = statsRes.success
     ? statsRes.data
@@ -59,13 +57,6 @@ export default async function AdminPage() {
       ? recentShipmentsRes.data.data
       : [];
   const trends = trendsRes.success ? trendsRes.data : [];
-
-  const destinations = destinationsRes.success
-    ? destinationsRes.data.map((d) => ({
-        ...d,
-        coordinates: [0, 0] as [number, number],
-      }))
-    : [];
 
   // Transform trends for charts
   // { date, total, delivered, exception }
@@ -251,14 +242,9 @@ export default async function AdminPage() {
 
         {/* Row 3+: Visuals */}
 
-        {/* Main Chart - Takes 2x2 space */}
-        <div className='col-span-1 md:col-span-2 lg:col-span-2 lg:row-span-2'>
+        {/* Main Chart - Takes full width */}
+        <div className='col-span-1 md:col-span-2 lg:col-span-4 lg:row-span-2'>
           <ShipmentTrendsChart data={trends} />
-        </div>
-
-        {/* World Map - Right side (50% width) */}
-        <div className='col-span-1 md:col-span-2 lg:col-span-2 lg:row-span-2'>
-          <WorldMapDotted destinations={destinations} />
         </div>
       </div>
 
