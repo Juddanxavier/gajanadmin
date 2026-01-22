@@ -16,7 +16,7 @@ import {
 import Link from 'next/link';
 import { NotificationBell } from '../notifications/notification-bell';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { CountryFlag } from '@/components/ui/country-flag';
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,16 +26,17 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
 import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
 import { Input } from '../ui/input';
 import { useTheme } from 'next-themes';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { cn } from '@/lib/utils';
+
 import { GlobalSearch } from '@/components/admin/global-search';
 import { AdminBreadcrumbs } from '@/components/admin/breadcrumbs';
+import { getCurrentTenantDetails } from '@/app/(dashboard)/users/actions';
+import { CountryFlag } from '@/components/ui/country-flag';
 
 interface NavbarProps {
   onSidebarToggle?: () => void;
@@ -53,11 +54,10 @@ export default function Navbar({
     email: string;
     avatar?: string;
   } | null>(null);
-  const [currentTenant, setCurrentTenant] = useState<{
-    name: string;
-    country_code: string;
-  } | null>(null);
-  const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
+  const [tenant, setTenant] = useState<{ name: string; code: string } | null>(
+    null,
+  );
+
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -79,26 +79,14 @@ export default function Navbar({
           avatar: authUser.user_metadata?.avatar_url,
         });
 
-        // Check if Global Admin
-        const { data: isAdmin } = await supabase.rpc('is_admin', {
-          user_uuid: authUser.id,
-        });
-        if (isAdmin) {
-          setIsGlobalAdmin(true);
-        } else {
-          // Fetch tenant info only if not global admin (or fetch anyway but prioritize global badge?)
-          // Actually, global admins might want to see context. But request is "in place of tenant flag for global admin".
-          // Let's fetch tenant data regardless, but UI logic will prioritize Global Badge.
-          const { data: tenantData } = await supabase.rpc('get_user_tenants', {
-            user_uuid: authUser.id,
-          });
+        // Fetch Tenant
+        const tenantDetails = await getCurrentTenantDetails();
 
-          if (tenantData && tenantData.length > 0) {
-            setCurrentTenant({
-              name: tenantData[0].tenant_name,
-              country_code: tenantData[0].country_code || 'IN',
-            });
-          }
+        if (tenantDetails) {
+          setTenant(tenantDetails);
+        } else {
+          // If no tenant is assigned, assume Global Admin
+          setTenant({ name: 'Global Admin', code: 'GLOBAL' });
         }
       }
     };
@@ -174,31 +162,17 @@ export default function Navbar({
           {/* Breadcrumbs / Tenant Display */}
           <nav className='hidden sm:flex items-center space-x-4 text-sm text-muted-foreground'>
             <AdminBreadcrumbs />
-
-            {isGlobalAdmin ? (
-              <>
-                <Badge>
-                  <Globe className='h-3 w-3 text-primary-foreground' />
-                  <span className='text-primary-foreground font-normal tracking-wide text-[12px] capitalize'>
-                    Global Admin
-                  </span>
-                </Badge>
-              </>
-            ) : (
-              currentTenant && (
-                <>
-                  <div className='h-4 w-px bg-border' />
-                  <div className='flex items-center gap-1.5 bg-muted/50 px-1.5 h-5 rounded-md border border-border/50 transition-all hover:bg-muted'>
-                    <CountryFlag
-                      countryCode={currentTenant.country_code}
-                      className='h-2.5 w-3.5 rounded-[1px]'
-                    />
-                    <span className='text-foreground font-semibold tracking-tight text-[10px]'>
-                      {currentTenant.name}
-                    </span>
-                  </div>
-                </>
-              )
+            {tenant && (
+              <div className='flex items-center gap-2 px-3 py-1 bg-muted/50 rounded-full border border-border/50'>
+                {tenant.code === 'GLOBAL' ? (
+                  <Globe className='h-3 w-4' />
+                ) : (
+                  <CountryFlag countryCode={tenant.code} className='h-3 w-4' />
+                )}
+                <span className='font-medium text-foreground'>
+                  {tenant.name}
+                </span>
+              </div>
             )}
           </nav>
         </div>

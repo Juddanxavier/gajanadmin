@@ -582,6 +582,31 @@ INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p WHERE r.name = 'staff' AND p.name IN ('leads.view', 'leads.create', 'leads.update', 'shipments.view', 'shipments.create', 'shipments.update')
 ON CONFLICT DO NOTHING;
 
+
+-- =============================================================
+-- 10. VIEWS
+-- =============================================================
+
+-- Admin Profile View (Joins Profiles + Auth Users)
+CREATE OR REPLACE VIEW public.admin_profile_view AS
+SELECT
+    p.id,
+    p.email,
+    p.display_name,
+    p.full_name,
+    p.phone,
+    p.created_at,
+    u.last_sign_in_at,
+    u.email_confirmed_at
+FROM
+    public.profiles p
+JOIN
+    auth.users u ON p.id = u.id;
+
+-- Grant access to service_role
+GRANT SELECT ON public.admin_profile_view TO service_role;
+REVOKE ALL ON public.admin_profile_view FROM anon, authenticated;
+
 -- =============================================================
 -- MIGRATION COMPLETE
 -- =============================================================

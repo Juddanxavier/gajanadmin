@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -25,24 +25,75 @@ import {
 import {
   inviteUserByEmailAction,
   generateInviteLinkAction,
+  getUserDefaultTenant,
 } from '@/app/(dashboard)/users/actions';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import type { Role, Tenant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
 interface InviteLinkDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  isGlobalAdmin?: boolean;
+  roles?: Role[];
+  tenants?: Tenant[];
 }
 
 export function InviteLinkDialog({
   open,
   onOpenChange,
+  isGlobalAdmin = false,
+  roles = [],
+  tenants = [],
 }: InviteLinkDialogProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
+  const [role, setRole] = useState('customer');
+  const [tenant, setTenant] = useState<string | null>(null);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Set defaults when opening
+
+  // Reset/Init defaults
+  const resetDefaults = () => {
+    setEmail('');
+    setInviteLink(null);
+    setEmailSent(false);
+    setCopied(false);
+
+    if (!isGlobalAdmin) {
+      setRole('customer');
+      getUserDefaultTenant().then((tid) => setTenant(tid || null));
+    } else {
+      setRole('customer'); // Default for admin too?
+      setTenant(null); // Global default
+    }
+  };
+
+  // React to open change to reset
+  // Using useEffect to handle open prop changes if needed, or just onOpenChange wrapper
+  // But since we have internal state, better to reset on open.
+  // We'll trust the user resets via handleClose/handleReset for now or add effect.
+
+  // Effect to set defaults on load/prop change
+
+  useEffect(() => {
+    if (open) {
+      if (!isGlobalAdmin) {
+        setRole('customer');
+        getUserDefaultTenant().then((tid) => setTenant(tid || null));
+      }
+    }
+  }, [open, isGlobalAdmin]);
 
   const handleSendEmail = async () => {
     if (!email) {
@@ -56,7 +107,11 @@ export function InviteLinkDialog({
 
     setLoading(true);
     try {
-      const result = await inviteUserByEmailAction(email);
+      const result = await inviteUserByEmailAction(
+        email,
+        role,
+        tenant || undefined,
+      );
 
       if (result.success) {
         setEmailSent(true);
@@ -94,7 +149,11 @@ export function InviteLinkDialog({
 
     setLoading(true);
     try {
-      const result = await generateInviteLinkAction(email);
+      const result = await generateInviteLinkAction(
+        email,
+        role,
+        tenant || undefined,
+      );
 
       if (result.success && result.data) {
         setInviteLink(result.data.link);
@@ -141,18 +200,12 @@ export function InviteLinkDialog({
   };
 
   const handleClose = () => {
-    setEmail('');
-    setInviteLink(null);
-    setEmailSent(false);
-    setCopied(false);
+    resetDefaults();
     onOpenChange(false);
   };
 
   const handleReset = () => {
-    setEmail('');
-    setInviteLink(null);
-    setEmailSent(false);
-    setCopied(false);
+    resetDefaults();
   };
 
   return (
@@ -207,6 +260,42 @@ export function InviteLinkDialog({
                   }}
                 />
               </div>
+
+              {isGlobalAdmin && (
+                <div className='grid grid-cols-2 gap-4'>
+                  <div className='space-y-2'>
+                    <Label>Role</Label>
+                    <Select value={role} onValueChange={setRole}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value='admin'>Admin</SelectItem>
+                        <SelectItem value='staff'>Staff</SelectItem>
+                        <SelectItem value='customer'>Customer</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className='space-y-2'>
+                    <Label>Tenant</Label>
+                    <Select
+                      value={tenant || 'none'}
+                      onValueChange={(v) => setTenant(v === 'none' ? null : v)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder='Select tenant' />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value='none'>None (Global)</SelectItem>
+                        {tenants.map((t) => (
+                          <SelectItem key={t.id} value={t.id}>
+                            {t.code} {t.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
 
               <div className='grid grid-cols-2 gap-2'>
                 <Button

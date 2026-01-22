@@ -50,18 +50,33 @@ import {
   updateSettings,
   testSMTPConnection,
   testWebhook,
+  getAllTenants,
+  getNotificationConfig,
+  updateNotificationConfig,
 } from './actions';
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<any>(null);
+  const [notifSettings, setNotifSettings] = useState<any>({
+    provider_id: 'smtp',
+    credentials: {},
+    config: { from_email: '', from_name: '' },
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showSmtpPassword, setShowSmtpPassword] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
   const [useMockData, setUseMockData] = useState(false);
 
+  // Tenant switching for Admins
+  const [tenants, setTenants] = useState<any[]>([]);
+  const [selectedTenantId, setSelectedTenantId] = useState<string | undefined>(
+    undefined,
+  );
+
   useEffect(() => {
-    loadSettings();
+    // Determine if user is admin and fetch tenants
+    checkAdminAndFetchTenants();
     // Load mock data setting from localStorage
     const storedMockData = localStorage.getItem('use-mock-data');
     if (storedMockData !== null) {
@@ -69,24 +84,68 @@ export default function SettingsPage() {
     }
   }, []);
 
-  const loadSettings = async () => {
+  useEffect(() => {
+    // Re-load settings when tenant selection changes (or on initial load)
+    loadSettings(selectedTenantId);
+  }, [selectedTenantId]);
+
+  const checkAdminAndFetchTenants = async () => {
+    const result = await getAllTenants();
+    if (result.success && result.data && result.data.length > 0) {
+      setTenants(result.data);
+      if (!selectedTenantId) {
+        setSelectedTenantId(result.data[0].id);
+      }
+    }
+  };
+
+  const loadSettings = async (tenantId?: string) => {
     setIsLoading(true);
-    const result = await getSettings();
-    if (result.success) {
-      setSettings(result.data);
+    const [settingsRes, notifRes] = await Promise.all([
+      getSettings(tenantId),
+      getNotificationConfig(tenantId),
+    ]);
+
+    if (settingsRes.success) {
+      setSettings(settingsRes.data);
     } else {
-      toast.error('Failed to load settings');
+      // Only show error if we explicitly requested a tenant or if we know tenants exist but failed
+      // This prevents "No tenant found" error on initial load for Admins before auto-select occurs
+      if (tenantId || tenants.length > 0) {
+        toast.error(settingsRes.error || 'Failed to load settings');
+      }
+    }
+
+    if (notifRes.success) {
+      if (notifRes.data) {
+        setNotifSettings(notifRes.data);
+      } else {
+        // Defaults if no record
+        setNotifSettings({
+          provider_id: 'smtp',
+          credentials: {},
+          config: { from_email: '', from_name: '' },
+        });
+      }
     }
     setIsLoading(false);
   };
 
   const handleSave = async () => {
     setIsSaving(true);
-    const result = await updateSettings(settings);
-    if (result.success) {
+    // Always update settings, optionally update notif config if changed or active
+    // Simple approach: Update both
+    const [settingsRes, notifRes] = await Promise.all([
+      updateSettings(settings, selectedTenantId),
+      updateNotificationConfig(notifSettings, selectedTenantId),
+    ]);
+
+    if (settingsRes.success && notifRes.success) {
       toast.success('Settings saved successfully');
     } else {
-      toast.error(result.error || 'Failed to save settings');
+      toast.error(
+        settingsRes.error || notifRes.error || 'Failed to save settings',
+      );
     }
     setIsSaving(false);
   };
@@ -137,19 +196,39 @@ export default function SettingsPage() {
             Manage your application preferences and configuration
           </p>
         </div>
-        <Button onClick={handleSave} disabled={isSaving}>
-          {isSaving ? (
-            <>
-              <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-              Saving...
-            </>
-          ) : (
-            <>
-              <Save className='mr-2 h-4 w-4' />
-              Save Changes
-            </>
+
+        <div className='flex items-center gap-2'>
+          {tenants.length > 0 && (
+            <Select
+              value={selectedTenantId}
+              onValueChange={setSelectedTenantId}>
+              <SelectTrigger className='w-[200px]'>
+                <SelectValue placeholder='Select Tenant' />
+              </SelectTrigger>
+              <SelectContent>
+                {tenants.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name} ({t.country_code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
-        </Button>
+
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? (
+              <>
+                <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className='mr-2 h-4 w-4' />
+                Save Changes
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -355,122 +434,172 @@ export default function SettingsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>SMTP Configuration</CardTitle>
+              <CardTitle>Email Provider Configuration</CardTitle>
               <CardDescription>
-                Configure your email server for sending notifications
+                Configure how shipment notifications are sent
               </CardDescription>
             </CardHeader>
             <CardContent className='space-y-4'>
-              <div className='grid gap-4 sm:grid-cols-2'>
-                <div className='space-y-2'>
-                  <Label htmlFor='smtp_host'>SMTP Host</Label>
-                  <Input
-                    id='smtp_host'
-                    value={settings?.smtp_host || ''}
-                    onChange={(e) =>
-                      setSettings({ ...settings, smtp_host: e.target.value })
-                    }
-                    placeholder='smtp.gmail.com'
-                  />
-                </div>
-                <div className='space-y-2'>
-                  <Label htmlFor='smtp_port'>SMTP Port</Label>
-                  <Input
-                    id='smtp_port'
-                    type='number'
-                    value={settings?.smtp_port || ''}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        smtp_port: parseInt(e.target.value),
-                      })
-                    }
-                    placeholder='587'
-                  />
-                </div>
+              <div className='space-y-2'>
+                <Label>Provider</Label>
+                <Select
+                  value={notifSettings?.provider_id || 'smtp'}
+                  onValueChange={(val) =>
+                    setNotifSettings({ ...notifSettings, provider_id: val })
+                  }>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='smtp'>SMTP (Gmail/Outlook)</SelectItem>
+                    <SelectItem value='zeptomail'>ZeptoMail (Zoho)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div className='grid gap-4 sm:grid-cols-2'>
-                <div className='space-y-2'>
-                  <Label htmlFor='smtp_username'>Username</Label>
-                  <Input
-                    id='smtp_username'
-                    value={settings?.smtp_username || ''}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        smtp_username: e.target.value,
-                      })
-                    }
-                    placeholder='your-email@gmail.com'
-                  />
-                </div>
-                <div className='space-y-2'>
-                  <Label htmlFor='smtp_password'>Password</Label>
-                  <div className='relative'>
-                    <Input
-                      id='smtp_password'
-                      type={showSmtpPassword ? 'text' : 'password'}
-                      value={settings?.smtp_password || ''}
-                      onChange={(e) =>
-                        setSettings({
-                          ...settings,
-                          smtp_password: e.target.value,
-                        })
-                      }
-                      placeholder='••••••••'
-                    />
-                    <Button
-                      type='button'
-                      variant='ghost'
-                      size='icon'
-                      className='absolute right-0 top-0 h-full'
-                      onClick={() => setShowSmtpPassword(!showSmtpPassword)}>
-                      {showSmtpPassword ? (
-                        <EyeOff className='h-4 w-4' />
-                      ) : (
-                        <Eye className='h-4 w-4' />
-                      )}
-                    </Button>
+
+              {notifSettings?.provider_id === 'zeptomail' ? (
+                <div className='space-y-4'>
+                  <div className='space-y-2'>
+                    <Label htmlFor='zepto_api_key'>
+                      Send Mail Token (API Key)
+                    </Label>
+                    <div className='relative'>
+                      <Input
+                        id='zepto_api_key'
+                        type='password'
+                        value={notifSettings.credentials?.api_key || ''}
+                        onChange={(e) =>
+                          setNotifSettings({
+                            ...notifSettings,
+                            credentials: {
+                              ...notifSettings.credentials,
+                              api_key: e.target.value,
+                            },
+                          })
+                        }
+                        placeholder='Zoho ZeptoMail Token'
+                      />
+                    </div>
+                    <p className='text-xs text-muted-foreground'>
+                      From ZeptoMail Dashboard &gt; Mail Agents &gt; Setup Info
+                    </p>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className='grid gap-4 sm:grid-cols-2'>
+                  <div className='space-y-2'>
+                    <Label>SMTP Host</Label>
+                    <Input
+                      value={notifSettings.credentials?.host || ''}
+                      onChange={(e) =>
+                        setNotifSettings({
+                          ...notifSettings,
+                          credentials: {
+                            ...notifSettings.credentials,
+                            host: e.target.value,
+                          },
+                        })
+                      }
+                      placeholder='smtp.gmail.com'
+                    />
+                  </div>
+                  <div className='space-y-2'>
+                    <Label>SMTP Port</Label>
+                    <Input
+                      type='number'
+                      value={notifSettings.credentials?.port || ''}
+                      onChange={(e) =>
+                        setNotifSettings({
+                          ...notifSettings,
+                          credentials: {
+                            ...notifSettings.credentials,
+                            port: parseInt(e.target.value),
+                          },
+                        })
+                      }
+                      placeholder='587'
+                    />
+                  </div>
+                  <div className='space-y-2'>
+                    <Label>Username</Label>
+                    <Input
+                      value={notifSettings.credentials?.user || ''}
+                      onChange={(e) =>
+                        setNotifSettings({
+                          ...notifSettings,
+                          credentials: {
+                            ...notifSettings.credentials,
+                            user: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                  <div className='space-y-2'>
+                    <Label>Password</Label>
+                    <Input
+                      type='password'
+                      value={notifSettings.credentials?.pass || ''}
+                      onChange={(e) =>
+                        setNotifSettings({
+                          ...notifSettings,
+                          credentials: {
+                            ...notifSettings.credentials,
+                            pass: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              )}
+
+              <Separator />
+
               <div className='grid gap-4 sm:grid-cols-2'>
                 <div className='space-y-2'>
-                  <Label htmlFor='smtp_from_email'>From Email</Label>
+                  <Label>From Email</Label>
                   <Input
-                    id='smtp_from_email'
-                    value={settings?.smtp_from_email || ''}
+                    value={notifSettings.config?.from_email || ''}
                     onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        smtp_from_email: e.target.value,
+                      setNotifSettings({
+                        ...notifSettings,
+                        config: {
+                          ...notifSettings.config,
+                          from_email: e.target.value,
+                        },
                       })
                     }
-                    placeholder='noreply@example.com'
+                    placeholder='noreply@domain.com'
                   />
                 </div>
                 <div className='space-y-2'>
-                  <Label htmlFor='smtp_from_name'>From Name</Label>
+                  <Label>From Name</Label>
                   <Input
-                    id='smtp_from_name'
-                    value={settings?.smtp_from_name || ''}
+                    value={notifSettings.config?.from_name || ''}
                     onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        smtp_from_name: e.target.value,
+                      setNotifSettings({
+                        ...notifSettings,
+                        config: {
+                          ...notifSettings.config,
+                          from_name: e.target.value,
+                        },
                       })
                     }
-                    placeholder='Shipment Tracking'
+                    placeholder='Gajan Shipping'
                   />
                 </div>
+
+                <div className='col-span-2'>
+                  <Button
+                    onClick={handleTestSMTP}
+                    variant='outline'
+                    className='w-full sm:w-auto'>
+                    <TestTube className='mr-2 h-4 w-4' />
+                    Test Connection
+                  </Button>
+                </div>
               </div>
-              <Button
-                onClick={handleTestSMTP}
-                variant='outline'
-                className='w-full sm:w-auto'>
-                <TestTube className='mr-2 h-4 w-4' />
-                Test SMTP Connection
-              </Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -960,7 +1089,7 @@ export default function SettingsPage() {
                     toast.success(
                       checked
                         ? 'Mock data enabled - Refresh analytics pages to see changes'
-                        : 'Real data enabled - Refresh analytics pages to see changes'
+                        : 'Real data enabled - Refresh analytics pages to see changes',
                     );
                   }}
                 />

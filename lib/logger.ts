@@ -1,3 +1,5 @@
+/** @format */
+
 export type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 
 export interface LogEntry {
@@ -18,7 +20,7 @@ class Logger {
         digest: (context as any).digest,
       };
       // Merge other properties
-      Object.keys(context).forEach(key => {
+      Object.keys(context).forEach((key) => {
         (errorContext as any)[key] = (context as any)[key];
       });
     }
@@ -32,23 +34,37 @@ class Logger {
 
     // In development, pretty print
     if (process.env.NODE_ENV === 'development') {
-      const color = 
-        level === 'error' ? '\x1b[31m' : 
-        level === 'warn' ? '\x1b[33m' : 
-        level === 'info' ? '\x1b[36m' : '\x1b[90m';
-      
+      const color =
+        level === 'error'
+          ? '\x1b[31m'
+          : level === 'warn'
+            ? '\x1b[33m'
+            : level === 'info'
+              ? '\x1b[36m'
+              : '\x1b[90m';
+
       const logMsg = `${color}[${level.toUpperCase()}] ${message}\x1b[0m`;
-      
+
+      const logMethod = (
+        ['error', 'warn', 'info', 'debug'].includes(level) ? level : 'log'
+      ) as keyof Console;
+      // Safety check if method exists (e.g. debug might not in some envs)
+      const safeLog = (console[logMethod] || console.log).bind(console);
+
       if (errorContext) {
-        console[level](logMsg);
+        safeLog(logMsg);
         // Explicitly JSON stringify to ensure it shows up in tools that capture stdout/stderr
-        console[level](JSON.stringify(errorContext, null, 2));
+        safeLog(JSON.stringify(errorContext, null, 2));
       } else {
-        console[level](logMsg);
+        safeLog(logMsg); // Log message safely
       }
     } else {
-        // In production, structured JSON logging
-        console[level](JSON.stringify(entry));
+      // In production, structured JSON logging
+      const logMethod = (
+        ['error', 'warn', 'info'].includes(level) ? level : 'log'
+      ) as keyof Console;
+      const safeLog = (console[logMethod] || console.log).bind(console);
+      safeLog(JSON.stringify(entry));
     }
   }
 

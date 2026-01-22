@@ -16,14 +16,6 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 // Connection pool settings
 const poolConfig = {
-  db: {
-    pool: {
-      max: 10, // Maximum connections
-      min: 2, // Minimum connections
-      idleTimeoutMillis: 30000, // Close idle connections after 30s
-      connectionTimeoutMillis: 10000, // Timeout after 10s
-    },
-  },
   auth: {
     persistSession: true,
     autoRefreshToken: true,

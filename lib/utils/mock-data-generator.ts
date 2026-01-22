@@ -31,7 +31,7 @@ export interface LeadTrendData {
  * Generate mock shipment trend data
  */
 export function generateMockShipmentTrends(
-  days: number = 90
+  days: number = 90,
 ): ShipmentTrendData[] {
   const data: ShipmentTrendData[] = [];
   const today = new Date();
@@ -239,4 +239,69 @@ export function generateMockTopDestinations() {
     count: Math.floor(Math.random() * 50) + 10,
     value: Math.floor(Math.random() * 100000) + 20000,
   }));
+}
+
+/**
+ * Generate mock leads for database seeding
+ */
+export function generateMockLeads(
+  count: number = 20,
+  tenantId: string,
+  customerId?: string,
+) {
+  const leads = [];
+  const goodsTypes = [
+    'Electronics',
+    'Clothing',
+    'Furniture',
+    'Machinery',
+    'Documents',
+    'Food',
+    'Chemicals',
+  ];
+  const countries = [
+    'CN',
+    'US',
+    'IN',
+    'DE',
+    'GB',
+    'FR',
+    'JP',
+    'AU',
+    'AE',
+    'SG',
+  ];
+  const statuses = ['pending', 'processing', 'completed', 'failed', 'new'];
+
+  for (let i = 0; i < count; i++) {
+    const origin = countries[Math.floor(Math.random() * countries.length)];
+    let destination = countries[Math.floor(Math.random() * countries.length)];
+    while (destination === origin) {
+      destination = countries[Math.floor(Math.random() * countries.length)];
+    }
+
+    const type = goodsTypes[Math.floor(Math.random() * goodsTypes.length)];
+    const status = statuses[Math.floor(Math.random() * statuses.length)];
+
+    // Random date within last 60 days
+    const date = new Date();
+    date.setDate(date.getDate() - Math.floor(Math.random() * 60));
+
+    leads.push({
+      tenant_id: tenantId,
+      customer_id: customerId,
+      name: `Lead ${type} ${origin}-${destination} #${Math.floor(Math.random() * 1000)}`,
+      email: `lead${i}@example.com`, // Optional
+      phone: `+123456789${i}`, // Optional
+      origin_country: origin,
+      destination_country: destination,
+      goods_type: type,
+      weight: Math.floor(Math.random() * 500) + 1,
+      value: Math.floor(Math.random() * 10000) + 100,
+      status: status,
+      created_at: date.toISOString(),
+      updated_at: date.toISOString(),
+    });
+  }
+  return leads;
 }

@@ -1,3 +1,5 @@
+/** @format */
+
 import {
   Body,
   Container,
@@ -24,6 +26,12 @@ interface ShipmentNotificationEmailProps {
   invoiceAmount?: number;
   invoiceCurrency?: string;
   companyName: string;
+  // New customizable props
+  logoUrl?: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  customHeading?: string;
+  customMessage?: string;
   deliveryDate?: string;
 }
 
@@ -37,10 +45,23 @@ export const ShipmentNotificationEmail = ({
   invoiceAmount,
   invoiceCurrency = 'USD',
   companyName = 'Your Company',
+  logoUrl,
+  companyAddress,
+  companyPhone,
+  customHeading,
+  customMessage,
   deliveryDate,
 }: ShipmentNotificationEmailProps) => {
   const previewText = `${getPreviewText(status)}${invoiceAmount ? ` - Amount: ${invoiceCurrency} ${invoiceAmount.toFixed(2)}` : ''}`;
-  const { title, message, color } = getStatusContent(status);
+  const {
+    title: defaultTitle,
+    message: defaultMessage,
+    color,
+  } = getStatusContent(status);
+
+  // Use custom content if provided, otherwise default to status-based content
+  const title = customHeading || defaultTitle;
+  const message = customMessage || defaultMessage;
 
   return (
     <Html>
@@ -48,6 +69,19 @@ export const ShipmentNotificationEmail = ({
       <Preview>{previewText}</Preview>
       <Body style={main}>
         <Container style={container}>
+          {/* Company Logo - Centered at top */}
+          {logoUrl && (
+            <Section style={logoSection}>
+              <Img
+                src={logoUrl}
+                width='150'
+                height='50'
+                alt={companyName}
+                style={logo}
+              />
+            </Section>
+          )}
+
           {/* Header with gradient */}
           <Section style={{ ...header, background: color }}>
             <Heading style={h1}>{title}</Heading>
@@ -63,33 +97,41 @@ export const ShipmentNotificationEmail = ({
               <Section style={invoiceHighlight}>
                 <Text style={invoiceLabel}>Total Amount</Text>
                 <Heading style={invoiceAmountStyle}>
-                  <span style={{ fontSize: '20px', marginRight: '6px', fontWeight: '600' }}>{invoiceCurrency}</span>
+                  <span
+                    style={{
+                      fontSize: '20px',
+                      marginRight: '6px',
+                      fontWeight: '600',
+                    }}>
+                    {invoiceCurrency}
+                  </span>
                   {invoiceAmount.toFixed(2)}
                 </Heading>
               </Section>
             )}
 
             {/* QR Code for initial tracking */}
-            {(status === 'info_received' || status === 'pending') && qrCodeDataUrl && (
-              <Section style={qrSection}>
-                <Text style={qrTitle}>Scan to Track Your Package</Text>
-                <Img
-                  src={qrCodeDataUrl}
-                  alt="QR Code for Tracking"
-                  width="180"
-                  height="180"
-                  style={qrCode}
-                />
-                <Text style={qrHint}>Use your phone camera to scan</Text>
-              </Section>
-            )}
+            {(status === 'info_received' || status === 'pending') &&
+              qrCodeDataUrl && (
+                <Section style={qrSection}>
+                  <Text style={qrTitle}>Scan to Track Your Package</Text>
+                  <Img
+                    src={qrCodeDataUrl}
+                    alt='QR Code for Tracking'
+                    width='180'
+                    height='180'
+                    style={qrCode}
+                  />
+                  <Text style={qrHint}>Use your phone camera to scan</Text>
+                </Section>
+              )}
 
             {/* Tracking Details Card */}
             <Section style={trackingCard}>
-              <Heading as="h3" style={cardTitle}>
+              <Heading as='h3' style={cardTitle}>
                 Shipment Details
               </Heading>
-              
+
               <Section style={detailsGrid}>
                 <Row style={detailRow}>
                   <Column style={detailLabel}>
@@ -105,7 +147,13 @@ export const ShipmentNotificationEmail = ({
                     <Text style={labelText}>Status</Text>
                   </Column>
                   <Column style={detailValue}>
-                    <Text style={{ ...valueText, textTransform: 'capitalize', color: '#667eea', fontWeight: '700' }}>
+                    <Text
+                      style={{
+                        ...valueText,
+                        textTransform: 'capitalize',
+                        color: '#667eea',
+                        fontWeight: '700',
+                      }}>
                       {status.replace(/_/g, ' ')}
                     </Text>
                   </Column>
@@ -169,19 +217,25 @@ function getPreviewText(status: string): string {
   }
 }
 
-function getStatusContent(status: string): { title: string; message: string; color: string } {
+function getStatusContent(status: string): {
+  title: string;
+  message: string;
+  color: string;
+} {
   switch (status) {
     case 'info_received':
     case 'pending':
       return {
         title: '📦 Your Shipment is Being Tracked!',
-        message: 'Great news! We\'ve received your shipment information and it\'s now being tracked. You can monitor its progress using the tracking link below.',
+        message:
+          "Great news! We've received your shipment information and it's now being tracked. You can monitor its progress using the tracking link below.",
         color: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
       };
     case 'delivered':
       return {
         title: '✅ Package Delivered Successfully!',
-        message: 'Your package has been delivered! We hope you enjoy your purchase.',
+        message:
+          'Your package has been delivered! We hope you enjoy your purchase.',
         color: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
       };
     case 'out_for_delivery':
@@ -194,13 +248,15 @@ function getStatusContent(status: string): { title: string; message: string; col
     case 'failed':
       return {
         title: '⚠️ Action Required - Shipment Issue',
-        message: 'There\'s an issue with your shipment that requires attention. Please contact our support team for assistance.',
+        message:
+          "There's an issue with your shipment that requires attention. Please contact our support team for assistance.",
         color: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
       };
     default:
       return {
         title: `📦 Shipment Update: ${status.replace(/_/g, ' ')}`,
-        message: 'Your shipment status has been updated. Check the details below for more information.',
+        message:
+          'Your shipment status has been updated. Check the details below for more information.',
         color: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
       };
   }
@@ -209,7 +265,8 @@ function getStatusContent(status: string): { title: string; message: string; col
 // Styles
 const main = {
   backgroundColor: '#f5f5f5',
-  fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
+  fontFamily:
+    '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
 };
 
 const container = {
@@ -217,6 +274,16 @@ const container = {
   margin: '0 auto',
   marginBottom: '64px',
   maxWidth: '600px',
+};
+
+const logoSection = {
+  padding: '20px 0',
+  textAlign: 'center' as const,
+};
+
+const logo = {
+  margin: '0 auto',
+  objectFit: 'contain' as const,
 };
 
 const header = {

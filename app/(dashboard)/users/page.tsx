@@ -6,10 +6,9 @@ import * as React from 'react';
 import {
   useEffect,
   useState,
-  useOptimistic,
   Suspense,
-  startTransition,
   useCallback,
+  useTransition,
 } from 'react';
 import { Button } from '@/components/ui/button';
 import { Plus, RefreshCw, Link as LinkIcon } from 'lucide-react';
@@ -25,24 +24,28 @@ import {
   getUsers,
   getRoles,
   getTenants,
-  getAvailableRoles,
-  getAvailableTenants,
-  getUserDefaultTenant,
+  deleteUser,
+  getCurrentUserId,
+  getPermissions,
 } from '@/app/(dashboard)/users/actions';
 import type { UserDisplay, UserTableFilters, Role, Tenant } from '@/lib/types';
 import { RowSelectionState, SortingState } from '@tanstack/react-table';
 import { Card } from '@/components/ui/card';
+import { toast } from 'sonner';
 
 function UsersPageContent() {
   const [users, setUsers] = useState<UserDisplay[]>([]);
-  const [optimisticUsers, setOptimisticUsers] = useOptimistic(
-    users,
-    (state, newUsers: UserDisplay[]) => newUsers
-  );
-  // Removed stats
   const [roles, setRoles] = useState<Role[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | undefined>(
+    undefined,
+  );
+  const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
+
   const [isLoading, setIsLoading] = useState(true);
+  const [isPending, startTransition] = useTransition();
+
+  // Pagination & Sorting state
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   const [pageCount, setPageCount] = useState(0);
@@ -57,148 +60,118 @@ function UsersPageContent() {
   const [deletingUsers, setDeletingUsers] = useState<UserDisplay[]>([]);
   const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false);
 
-  // Load initial data
-  useEffect(() => {
-    loadData();
+  // Load Reference Data
+  const loadRefData = useCallback(async () => {
+    try {
+      const [rolesRes, tenantsRes, userIdRes, permsRes] = await Promise.all([
+        getRoles(),
+        getTenants(),
+        getCurrentUserId(),
+        getPermissions(),
+      ]);
+      // actions return raw arrays for these helpers (wait, check implementation)
+      // Implementation: actions return raw arrays. Correct.
+      setRoles(rolesRes || []);
+      setTenants(tenantsRes || []);
+      setCurrentUserId(userIdRes || undefined);
+      setIsGlobalAdmin(permsRes?.isGlobalAdmin || false);
+    } catch (error) {
+      console.error('Error loading reference data:', error);
+    }
   }, []);
 
-  const [isPending, startTransition] = React.useTransition();
+  // Load Users Data
+  const loadUsers = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const sortBy = sorting[0]
+        ? { id: sorting[0].id, desc: sorting[0].desc }
+        : undefined;
+      const result = await getUsers(pageIndex, pageSize, filters, sortBy);
 
-  // Load users when filters, pagination, or sorting changes
+      if (result.success) {
+        setUsers(result.data.data);
+        setPageCount(result.data.pageCount);
+      } else {
+        toast.error('Failed to load users', { description: result.error });
+      }
+    } catch (error) {
+      console.error('Error loading users:', error);
+      toast.error('Unexpected error loading users');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [pageIndex, pageSize, filters, sorting]);
+
+  // Initial Load
   useEffect(() => {
-    startTransition(() => {
-      loadUsers();
-    });
+    loadRefData();
+  }, [loadRefData]);
+
+  // Data Refresh Trigger
+  useEffect(() => {
+    loadUsers();
   }, [loadUsers]);
 
-  const loadData = async () => {
-    try {
-      const [rolesData, tenantsData] = await Promise.all([
-        getAvailableRoles(),
-        getAvailableTenants(),
-      ]);
-
-      setRoles(rolesData);
-      setTenants(tenantsData);
-    } catch (error) {
-      console.error('Error loading data:', error);
-    }
-  };
-
-  const loadUsers = useCallback(
-    async (silent = false) => {
-      const isInitial = users.length === 0;
-      if (isInitial && !silent) setIsLoading(true);
-
-      try {
-        const sortBy = sorting[0]
-          ? { id: sorting[0].id, desc: sorting[0].desc }
-          : undefined;
-
-        const result = await getUsers(pageIndex, pageSize, filters, sortBy);
-
-        if (result.success) {
-          setUsers(result.data.data);
-          setPageCount(result.data.pageCount);
-        }
-      } catch (error) {
-        console.error('Error loading users:', error);
-      } finally {
-        if (isInitial) setIsLoading(false);
-      }
-    },
-    [users.length, pageIndex, pageSize, filters, sorting]
-  );
-
   const handleRefresh = () => {
-    loadData();
-    loadUsers(false);
+    loadRefData();
+    loadUsers();
   };
 
   const handleTabChange = (value: string) => {
-    // If 'all', clear role filter. Else set role filter.
-    // Note: backend expects role name in filters.role
     setFilters((prev) => ({
       ...prev,
       role: value === 'all' ? undefined : value,
     }));
     setPageIndex(0);
-  };
-
-  // ... (Keep existing Success handlers: handleSuccess, handleSuccessOptimistic, handleEditSuccess, etc.)
-  const handleSuccess = (user?: UserDisplay) => {
     setRowSelection({});
-    if (user) {
-      if (editingUser) {
-        handleEditSuccess(user);
-      } else {
-        startTransition(() => {
-          setOptimisticUsers([user, ...optimisticUsers]);
-        });
-        setTimeout(() => {
-          loadData();
-          loadUsers(true);
-        }, 100);
-      }
+  };
+
+  // --- Handlers ---
+
+  const handleCreateSuccess = (savedUser?: UserDisplay) => {
+    if (savedUser) {
+      // Optimistic Update
+      setUsers((prev) => {
+        if (editingUser) {
+          return prev.map((u) => (u.id === savedUser.id ? savedUser : u));
+        } else {
+          return [savedUser, ...prev];
+        }
+      });
+      // Toast handled in dialog for create/update
     } else {
-      loadData();
-      loadUsers(true);
+      // Fallback for bulk ops or if no user returned
+      loadUsers();
     }
-  };
 
-  const handleEdit = (user: UserDisplay) => {
-    setEditingUser(user);
-  };
-
-  const handleEditSuccess = (updatedUser: UserDisplay) => {
-    const updatedUsers = optimisticUsers.map((u) =>
-      u.id === updatedUser.id ? updatedUser : u
-    );
-    startTransition(() => {
-      setOptimisticUsers(updatedUsers);
-    });
+    setIsCreateDialogOpen(false);
     setEditingUser(null);
-    setTimeout(() => {
-      loadUsers(true);
-    }, 100);
-  };
-
-  const handleDelete = (user: UserDisplay) => {
-    setDeletingUsers([user]);
   };
 
   const handleDeleteSuccess = () => {
-    const deletedIds = deletingUsers.map((u) => u.id);
-    const updatedUsers = optimisticUsers.filter(
-      (u) => !deletedIds.includes(u.id)
-    );
-    startTransition(() => {
-      setOptimisticUsers(updatedUsers);
-    });
+    // Optimistic Delete
+    const deletedIds = new Set(deletingUsers.map((u) => u.id));
+    setUsers((prev) => prev.filter((u) => !deletedIds.has(u.id)));
+
     setDeletingUsers([]);
     setRowSelection({});
-    setTimeout(() => {
-      loadData();
-      loadUsers(true);
-    }, 100);
+    toast.success('User(s) deleted successfully');
   };
 
   const handleBulkDelete = () => {
-    const selectedUsers = optimisticUsers.filter(
-      (_, index) => rowSelection[index]
-    );
-    setDeletingUsers(selectedUsers);
+    const selected = users.filter((_, idx) => rowSelection[idx]);
+    setDeletingUsers(selected);
   };
 
-  const handleBulkAssignRole = () => {
+  const handleBulkAssign = () => {
     setIsBulkAssignDialogOpen(true);
   };
 
-  const selectedUserIds = optimisticUsers
-    .filter((_, index) => rowSelection[index])
-    .map((u) => u.id);
-
   const selectedCount = Object.keys(rowSelection).length;
+  const selectedUserIds = users
+    .filter((_, idx) => rowSelection[idx])
+    .map((u) => u.id);
 
   return (
     <div className='space-y-6'>
@@ -206,23 +179,8 @@ function UsersPageContent() {
         <div>
           <h1 className='text-3xl font-bold tracking-tight'>User Management</h1>
           <p className='text-muted-foreground'>
-            Manage users, roles, and tenant assignments
+            Manage users, roles, and assignments (Direct Mode)
           </p>
-        </div>
-        <div className='flex gap-2'>
-          <Button variant='outline' size='icon' onClick={handleRefresh}>
-            <RefreshCw className='h-4 w-4' />
-          </Button>
-          <Button
-            variant='outline'
-            onClick={() => setIsInviteLinkDialogOpen(true)}>
-            <LinkIcon className='mr-2 h-4 w-4' />
-            Invite Link
-          </Button>
-          <Button onClick={() => setIsCreateDialogOpen(true)}>
-            <Plus className='mr-2 h-4 w-4' />
-            Add User
-          </Button>
         </div>
       </div>
 
@@ -237,40 +195,37 @@ function UsersPageContent() {
           <TabsTrigger value='customer'>Customers</TabsTrigger>
         </TabsList>
 
-        <Card className='p-4'>
-          <DataTableToolbar
-            filters={filters}
-            onFiltersChange={setFilters}
-            selectedCount={selectedCount}
-            onBulkDelete={selectedCount > 0 ? handleBulkDelete : undefined}
-            onBulkAssignRole={
-              selectedCount > 0 ? handleBulkAssignRole : undefined
-            }
-            roles={roles}
-            tenants={tenants}
-          />
-
-          <DataTable
-            columns={columns}
-            data={optimisticUsers}
-            pageCount={pageCount}
-            pageIndex={pageIndex}
-            pageSize={pageSize}
-            onPaginationChange={({ pageIndex, pageSize }) => {
-              setPageIndex(pageIndex);
-              setPageSize(pageSize);
-            }}
-            onSortingChange={setSorting}
-            onRowSelectionChange={setRowSelection}
-            rowSelection={rowSelection}
-            isLoading={isLoading || isPending}
-            onAddNew={() => setIsCreateDialogOpen(true)}
-            meta={{
-              onEdit: handleEdit,
-              onDelete: handleDelete,
-            }}
-          />
-        </Card>
+        <DataTable
+          columns={columns}
+          data={users}
+          pageCount={pageCount}
+          pageIndex={pageIndex}
+          pageSize={pageSize}
+          onPaginationChange={({ pageIndex: p, pageSize: s }) => {
+            setPageIndex(p);
+            setPageSize(s);
+          }}
+          onSortingChange={setSorting}
+          onRowSelectionChange={setRowSelection}
+          rowSelection={rowSelection}
+          isLoading={isLoading}
+          onAddNew={() => setIsCreateDialogOpen(true)}
+          // Toolbar props
+          filters={filters}
+          onFiltersChange={setFilters}
+          onRefresh={handleRefresh}
+          onInvite={() => setIsInviteLinkDialogOpen(true)}
+          onBulkDelete={selectedCount > 0 ? handleBulkDelete : undefined}
+          onBulkAssignRole={selectedCount > 0 ? handleBulkAssign : undefined}
+          roles={roles}
+          tenants={tenants}
+          isRefreshing={isLoading}
+          meta={{
+            onEdit: (user) => setEditingUser(user),
+            onDelete: (user) => setDeletingUsers([user]),
+            currentUserId: currentUserId,
+          }}
+        />
       </Tabs>
 
       {/* Dialogs */}
@@ -285,7 +240,8 @@ function UsersPageContent() {
         user={editingUser}
         roles={roles}
         tenants={tenants}
-        onSuccess={handleSuccess}
+        isGlobalAdmin={isGlobalAdmin}
+        onSuccess={handleCreateSuccess}
       />
 
       <DeleteUserDialog
@@ -294,7 +250,7 @@ function UsersPageContent() {
           if (!open) setDeletingUsers([]);
         }}
         users={deletingUsers}
-        onSuccess={handleDeleteSuccess} // Fixed: uses proper success handler
+        onSuccess={handleDeleteSuccess}
       />
 
       <BulkAssignRoleDialog
@@ -302,12 +258,15 @@ function UsersPageContent() {
         onOpenChange={setIsBulkAssignDialogOpen}
         userIds={selectedUserIds}
         roles={roles}
-        onSuccess={handleSuccess}
+        onSuccess={handleCreateSuccess} // Reusing success handler
       />
 
       <InviteLinkDialog
         open={isInviteLinkDialogOpen}
         onOpenChange={setIsInviteLinkDialogOpen}
+        isGlobalAdmin={isGlobalAdmin}
+        roles={roles}
+        tenants={tenants}
       />
     </div>
   );
@@ -317,9 +276,7 @@ export default function UsersPage() {
   return (
     <Suspense
       fallback={
-        <div className='flex items-center justify-center min-h-screen'>
-          Loading...
-        </div>
+        <div className='p-8 text-center'>Loading User Management...</div>
       }>
       <UsersPageContent />
     </Suspense>

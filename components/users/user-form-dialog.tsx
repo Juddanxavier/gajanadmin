@@ -1,20 +1,82 @@
-"use client";
+/** @format */
 
-import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Loader2, User, Lock, Shield } from "lucide-react";
-import { createUser, updateUser, getUserDefaultTenant } from "@/app/(dashboard)/users/actions";
-import type { Role, Tenant, UserDisplay } from "@/lib/types";
+} from '@/components/ui/select';
+import { Loader2 } from 'lucide-react';
+import {
+  createUser,
+  updateUser,
+  getUserDefaultTenant,
+} from '@/app/(dashboard)/users/actions';
+import type { Role, Tenant, UserDisplay, RoleName } from '@/lib/types';
+import { toast } from 'sonner';
+
+// Schema
+const formSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  name: z.string().optional(),
+  phone: z.string().optional(),
+  password: z.string().optional(),
+  role: z.enum(['admin', 'staff', 'customer']),
+  tenant: z.string().optional().nullable(),
+});
+
+type FormValues = z.infer<typeof formSchema>;
+
+// Country code mapping (ISO 2 -> Dial Code)
+const COUNTRY_PHONE_CODES: Record<string, string> = {
+  US: '1',
+  CA: '1',
+  GB: '44',
+  IN: '91',
+  AU: '61',
+  SG: '65',
+  AE: '971',
+  MY: '60',
+  TH: '66',
+  VN: '84',
+  ID: '62',
+  PH: '63',
+  CN: '86',
+  JP: '81',
+  KR: '82',
+  DE: '49',
+  FR: '33',
+  IT: '39',
+  ES: '34',
+  NL: '31',
+  LK: '94',
+  // Add more as needed
+};
 
 interface UserFormDialogProps {
   open: boolean;
@@ -23,6 +85,7 @@ interface UserFormDialogProps {
   roles: Role[];
   tenants: Tenant[];
   onSuccess: (user?: UserDisplay) => void;
+  isGlobalAdmin?: boolean;
 }
 
 export function UserFormDialog({
@@ -32,106 +95,143 @@ export function UserFormDialog({
   roles,
   tenants,
   onSuccess,
+  isGlobalAdmin = false,
 }: UserFormDialogProps) {
   const isEdit = !!user;
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [defaultTenantId, setDefaultTenantId] = useState<string | null>(null);
 
-  // Get customer role ID
-  const customerRole = roles.find(r => r.name === "customer");
-  
-  const [formData, setFormData] = useState({
-    email: user?.email || "",
-    name: user?.name || "",
-    phone: user?.phone || "",
-    password: "",
-    role: user?.roles[0]?.name || customerRole?.name || "",
-    tenant: user?.tenants[0]?.id || "",
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      email: '',
+      name: '',
+      phone: '',
+      password: '',
+      role: 'customer',
+      tenant: null,
+    },
   });
 
-  // Load default tenant for new users
-  useEffect(() => {
-    if (!isEdit && open) {
-      getUserDefaultTenant().then(tenantId => {
-        if (tenantId) {
-          setDefaultTenantId(tenantId);
-          setFormData(prev => ({ ...prev, tenant: tenantId }));
-        }
-      });
-    }
-  }, [isEdit, open, tenants]);
-
-  // Reset form when dialog opens/closes
+  // Calculate default values based on props
   useEffect(() => {
     if (open) {
       if (user) {
-        setFormData({
+        form.reset({
           email: user.email,
-          name: user.name || "",
-          phone: user.phone || "",
-          password: "",
-          role: user.roles[0]?.name || customerRole?.name || "",
-          tenant: user.tenants[0]?.id || "",
+          name: user.name || '',
+          phone: user.phone || '',
+          password: '', // Password not editable directly here usually, or blank means no change
+          role: (user.roles[0]?.name as RoleName) || 'customer',
+          tenant: user.tenants[0]?.id || null, // Assuming single tenant for simplicty in UI
         });
       } else {
-        setFormData({
-          email: "",
-          name: "",
-          phone: "",
-          password: "",
-          role: customerRole?.name || "",
-          tenant: defaultTenantId || tenants[0]?.id || "",
+        // Validation: New User
+        // Fetch default tenant
+        getUserDefaultTenant().then((tid) => {
+          form.reset({
+            email: '',
+            name: '',
+            phone: '',
+            password: '',
+            role: !isGlobalAdmin ? 'customer' : 'customer',
+            tenant: tid || null,
+          });
         });
       }
-      setError(null);
     }
-  }, [open, user, customerRole, defaultTenantId, tenants]);
+  }, [open, user, form, isGlobalAdmin]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Auto-fill phone prefix based on tenant
+  // We use a separate effect that depends on the selected tenant
+  const selectedTenantId = form.watch('tenant');
+
+  useEffect(() => {
+    // Only auto-fill for new users or if phone is empty
+    const currentPhone = form.getValues('phone');
+    if (open && !user && (!currentPhone || currentPhone === '+')) {
+      if (selectedTenantId && selectedTenantId !== 'none') {
+        const tenant = tenants.find((t) => t.id === selectedTenantId);
+        // Assuming tenant.code is country code (e.g. 'US', 'IN')
+        // The API actually returns code: country_code || code
+        if (tenant && tenant.code) {
+          const dialCode = COUNTRY_PHONE_CODES[tenant.code.toUpperCase()];
+          if (dialCode) {
+            form.setValue('phone', `+${dialCode}`);
+          }
+        }
+      }
+    }
+  }, [selectedTenantId, open, user, form, tenants]);
+
+  const onSubmit = async (values: FormValues) => {
     setIsLoading(true);
-    setError(null);
-
     try {
       if (isEdit && user) {
-        const result = await updateUser(user.id, {
-          email: formData.email !== user.email ? formData.email : undefined,
-          name: formData.name || undefined,
-          phone: formData.phone || undefined,
-          roles: [formData.role],
-          // tenants: [formData.tenant], // Don't update tenant
-        });
+        // Update
+        const valuesToUpdate = {
+          email: values.email !== user.email ? values.email : undefined,
+          name: values.name || undefined,
+          phone: values.phone || undefined,
+          roles: [values.role],
+          tenants: values.tenant ? [values.tenant] : undefined,
+        };
 
-        if (!result.success) {
-          throw new Error(result.error);
-        }
-        
-        onSuccess(result.data);
+        const res = await updateUser(user.id, valuesToUpdate);
+
+        if (!res.success) throw new Error(res.error);
+        toast.success('User updated successfully');
+
+        // Construct optimistic user for update
+        // We need to match UserDisplay shape.
+        // Helper to get role object from name
+        const roleObj = roles.find((r) => r.name === values.role) || {
+          id: values.role,
+          name: values.role,
+          description: null,
+          created_at: '',
+          updated_at: '',
+        };
+        // Helper to get tenant object from id
+        const tenantObj = values.tenant
+          ? tenants.find((t) => t.id === values.tenant)
+          : null;
+
+        const optimisticUser: UserDisplay = {
+          ...user,
+          email: values.email, // If changed
+          name: values.name || user.name,
+          phone: values.phone || user.phone,
+          roles: [roleObj],
+          tenants: tenantObj ? [tenantObj] : [], // Valid Tenant[]
+          // Note: Tenants is array of Tenant, we construct valid object.
+        };
+        onSuccess(optimisticUser);
       } else {
-        if (!formData.password) {
-          throw new Error("Password is required");
+        // Create
+        if (!values.password) {
+          form.setError('password', { message: 'Password is required' });
+          setIsLoading(false);
+          return;
         }
 
-        const result = await createUser({
-          email: formData.email,
-          name: formData.name,
-          password: formData.password,
-          phone: formData.phone || undefined,
-          role: formData.role,
-          tenant: formData.tenant,
+        const res = await createUser({
+          email: values.email,
+          password: values.password,
+          name: values.name || undefined,
+          phone: values.phone || undefined,
+          role: values.role as RoleName,
+          tenant: values.tenant || null, // Ensure 'none' maps to null
         });
 
-        if (!result.success) {
-          throw new Error(result.error);
-        }
-        
-        onSuccess(result.data);
+        if (!res.success) throw new Error(res.error);
+        toast.success('User created successfully');
+        onSuccess(res.data);
       }
 
       onOpenChange(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : 'Operation failed');
     } finally {
       setIsLoading(false);
     }
@@ -139,149 +239,155 @@ export function UserFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className='sm:max-w-[425px]'>
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit User" : "Create New User"}</DialogTitle>
+          <DialogTitle>{isEdit ? 'Edit User' : 'Create User'}</DialogTitle>
           <DialogDescription>
             {isEdit
-              ? "Update user details, role, and tenant assignment."
-              : "Add a new user to the system with a role and tenant access."}
+              ? "Update the user's details and permissions."
+              : 'Add a new user to the system.'}
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Name */}
-          <div className="grid gap-6 py-4">
-            
-            {/* Section: Personal Information */}
-            <div className="space-y-4">
-                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground border-b pb-2">
-                    <User className="h-4 w-4" />
-                    Personal Information
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="name">Full Name</Label>
-                      <Input
-                        id="name"
-                        value={formData.name}
-                        onChange={(e) =>
-                          setFormData({ ...formData, name: e.target.value })
-                        }
-                        placeholder="John Doe"
-                        disabled={isLoading}
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="phone">Phone Number</Label>
-                      <Input
-                        id="phone"
-                        type="tel"
-                        value={formData.phone}
-                        onChange={(e) =>
-                          setFormData({ ...formData, phone: e.target.value })
-                        }
-                        placeholder="+1 234 567 890"
-                        disabled={isLoading}
-                      />
-                    </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email Address *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) =>
-                      setFormData({ ...formData, email: e.target.value })
-                    }
-                    placeholder="john@example.com"
-                    required
-                    disabled={isLoading}
-                  />
-                </div>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-4'>
+            <FormField
+              control={form.control}
+              name='email'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input placeholder='email@example.com' {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className='grid grid-cols-2 gap-4'>
+              <FormField
+                control={form.control}
+                name='name'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder='John Doe' {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name='phone'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone</FormLabel>
+                    <FormControl>
+                      <Input placeholder='+1234567890' {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
-            {/* Section: Account Security (Create Only) */}
             {!isEdit && (
-                 <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground border-b pb-2">
-                        <Lock className="h-4 w-4" />
-                        Account Security
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="password">Password *</Label>
+              <FormField
+                control={form.control}
+                name='password'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
                       <Input
-                        id="password"
-                        type="password"
-                        value={formData.password}
-                        onChange={(e) =>
-                          setFormData({ ...formData, password: e.target.value })
-                        }
-                        placeholder="••••••••"
-                        required
-                        disabled={isLoading}
-                        minLength={6}
+                        type='password'
+                        placeholder='••••••••'
+                        {...field}
                       />
-                    </div>
-                </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             )}
 
-            {/* Section: Access Control */}
-            <div className="space-y-4">
-                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground border-b pb-2">
-                    <Shield className="h-4 w-4" />
-                    Access Control
-                </div>
-                 <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="role">Role *</Label>
+            {isGlobalAdmin && (
+              <div className='grid grid-cols-2 gap-4'>
+                <FormField
+                  control={form.control}
+                  name='role'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Role</FormLabel>
                       <Select
-                        value={formData.role}
-                        onValueChange={(value) =>
-                          setFormData({ ...formData, role: value })
-                        }
-                        disabled={isLoading}
-                      >
-                        <SelectTrigger id="role">
-                          <SelectValue placeholder="Select role" />
-                        </SelectTrigger>
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder='Select role' />
+                          </SelectTrigger>
+                        </FormControl>
                         <SelectContent>
-                          {roles.map((role) => (
-                            <SelectItem key={role.id} value={role.name}>
-                              {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
+                          <SelectItem value='admin'>Admin</SelectItem>
+                          <SelectItem value='staff'>Staff</SelectItem>
+                          <SelectItem value='customer'>Customer</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='tenant'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tenant</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value || 'none'}
+                        defaultValue={field.value || 'none'}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder='Select tenant' />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value='none'>None (Global)</SelectItem>
+                          {tenants.map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              {t.code} {t.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                    </div>
-                </div>
-            </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
 
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
-              {error}
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isLoading}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isEdit ? "Update User" : "Create User"}
-            </Button>
-          </DialogFooter>
-        </form>
+            <DialogFooter className='pt-4'>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={() => onOpenChange(false)}
+                disabled={isLoading}>
+                Cancel
+              </Button>
+              <Button type='submit' disabled={isLoading}>
+                {isLoading && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
+                {isEdit ? 'Save Changes' : 'Create User'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

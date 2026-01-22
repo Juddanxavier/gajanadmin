@@ -1,5 +1,10 @@
+/** @format */
+
+import { render } from '@react-email/render';
+import ShipmentNotificationEmail from '@/emails/shipment-notification';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { emailService } from './email-service';
+import { renderTemplate } from './template-engine';
+import { NotificationEngine } from './engine';
 
 /**
  * Notification Service with Anti-Spam Protection
@@ -7,30 +12,33 @@ import { emailService } from './email-service';
  */
 
 interface NotificationData {
-  tracking_number: string;
-  carrier: string;
-  old_status?: string;
-  new_status: string;
-  latest_location?: string;
-  customer_name?: string;
+  shipmentId: string;
+  trackingCode: string;
+  status: string;
+  oldStatus?: string;
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  location?: string;
 }
 
 export class NotificationService {
   private static readonly MAX_RETRIES = 3;
-  private static readonly RETRY_DELAY_MINUTES = 5;
+  private static readonly engine = new NotificationEngine();
 
   /**
-   * Process pending notifications with retry logic
+   * Process pending notifications with retry logic and debouncing
    */
   static async processPendingNotifications() {
     const supabase = createAdminClient();
 
     try {
-      // Get pending notifications (not sent and retry count < max)
+      // Get pending notifications that are due (scheduled_for <= now)
       const { data: notifications, error } = await supabase
         .from('notifications')
         .select('*')
         .is('sent_at', null)
+        .lte('scheduled_for', new Date().toISOString())
         .lt('retry_count', this.MAX_RETRIES)
         .order('created_at', { ascending: true })
         .limit(50); // Process in batches
@@ -46,43 +54,95 @@ export class NotificationService {
         notifications.map(async (notification) => {
           try {
             const data: NotificationData = notification.data;
+            const tenantId = notification.tenant_id;
 
-            // Additional spam check: verify this isn't a duplicate
-            const isDuplicate = await this.checkDuplicateNotification(
-              notification.shipment_id,
-              data.new_status,
-              notification.id
-            );
+            // 1. Get Tenant Settings for Templates
+            const { data: settings } = await supabase
+              .from('settings')
+              .select('*')
+              .eq('tenant_id', tenantId)
+              .single();
 
-            if (isDuplicate) {
-              console.log(`[Anti-Spam] Skipping duplicate notification ${notification.id}`);
-              // Mark as sent to prevent reprocessing
-              await supabase
-                .from('notifications')
-                .update({ 
-                  sent_at: new Date().toISOString(),
-                  error: 'Duplicate notification skipped'
-                })
-                .eq('id', notification.id);
-              return { id: notification.id, success: true, skipped: true };
+            const emailEnabled = settings?.email_notifications_enabled ?? true;
+            const smsEnabled = settings?.sms_notifications_enabled ?? false;
+
+            // Prepare Variables
+            const variables = {
+              trackingCode: data.trackingCode,
+              status: data.status.toUpperCase(),
+              customerName: data.customerName || 'Customer',
+              location: data.location,
+              trackingUrl: `https://tracking.gajantraders.com/track/${data.trackingCode}`, // TODO: Use env
+              companyName: settings?.company_name || 'Logistics Team',
+            };
+
+            // 2. Process Email
+            if (emailEnabled && notification.recipient_email) {
+              const subjectTemplate =
+                settings?.email_template_subject ||
+                'Shipment Update: {{trackingCode}} - {{status}}';
+              const subject = renderTemplate(subjectTemplate, variables);
+
+              let html;
+              try {
+                html = await render(
+                  ShipmentNotificationEmail({
+                    recipientName: data.customerName || 'Customer',
+                    status: data.status,
+                    trackingNumber: data.trackingCode,
+                    referenceCode: data.trackingCode,
+                    trackingUrl: variables.trackingUrl,
+                    companyName: settings?.company_name || 'Logistics Team',
+                    qrCodeDataUrl: '',
+                  })
+                );
+              } catch (err) {
+                console.error(
+                  '[NotificationService] React Email Render Error:',
+                  err
+                );
+                const bodyTemplate =
+                  settings?.email_template_body ||
+                  'Hello {{customerName}},<br/><br/>Your shipment ({{trackingCode}}) status has changed to: <b>{{status}}</b>.<br/><br/><a href="{{trackingUrl}}">Track here</a>';
+                html = renderTemplate(bodyTemplate, variables);
+              }
+
+              await this.engine.sendEmail(tenantId, {
+                to: notification.recipient_email,
+                subject: subject,
+                html: html,
+                shipmentId: notification.shipment_id,
+                triggerStatus: data.status,
+              });
             }
 
-            // Send email if recipient_email exists
-            if (notification.recipient_email) {
-              await this.sendEmailNotification(
-                notification.type,
-                notification.recipient_email,
-                data
-              );
+            // 3. Process SMS
+            if (smsEnabled && notification.recipient_phone) {
+              const smsTemplate =
+                settings?.sms_template ||
+                'Shipment {{trackingCode}}: Status is now {{status}}. Track: {{trackingUrl}}';
+              const body = renderTemplate(smsTemplate, variables);
+
+              await this.engine.sendSMS(tenantId, {
+                to: notification.recipient_phone,
+                body: body,
+                shipmentId: notification.shipment_id,
+                triggerStatus: data.status,
+              });
             }
 
-            // Send SMS if recipient_phone exists
-            if (notification.recipient_phone) {
-              await this.sendSMSNotification(
-                notification.type,
-                notification.recipient_phone,
-                data
-              );
+            // 4. Process Webhook
+            if (settings?.webhook_url) {
+              await this.engine.sendWebhook(tenantId, {
+                url: settings.webhook_url,
+                data: {
+                  ...data,
+                  timestamp: new Date().toISOString(),
+                  event: 'shipment_update',
+                },
+                shipmentId: notification.shipment_id,
+                triggerStatus: data.status,
+              });
             }
 
             // Mark as sent
@@ -93,37 +153,40 @@ export class NotificationService {
 
             return { id: notification.id, success: true };
           } catch (error: any) {
-            console.error(`Failed to send notification ${notification.id}:`, error);
+            console.error(
+              `Failed to send notification ${notification.id}:`,
+              error
+            );
 
             // Increment retry count
             const newRetryCount = (notification.retry_count || 0) + 1;
 
             await supabase
               .from('notifications')
-              .update({ 
+              .update({
                 error: error.message,
-                retry_count: newRetryCount
+                retry_count: newRetryCount,
               })
               .eq('id', notification.id);
 
-            return { id: notification.id, success: false, error: error.message };
+            return {
+              id: notification.id,
+              success: false,
+              error: error.message,
+            };
           }
         })
       );
 
       const successful = results.filter(
-        (r) => r.status === 'fulfilled' && r.value.success
-      ).length;
-      const skipped = results.filter(
-        (r) => r.status === 'fulfilled' && r.value.skipped
+        (r) => r.status === 'fulfilled' && (r as any).value.success
       ).length;
 
       return {
         success: true,
         processed: notifications.length,
         successful,
-        skipped,
-        failed: notifications.length - successful - skipped,
+        failed: notifications.length - successful,
       };
     } catch (error: any) {
       console.error('Notification processing error:', error);
@@ -227,7 +290,9 @@ export class NotificationService {
       exception: `⚠️ Issue with ${data.tracking_number}. Check tracking.`,
     };
 
-    const message = messages[data.new_status] || `${data.tracking_number}: ${data.new_status}`;
+    const message =
+      messages[data.new_status] ||
+      `${data.tracking_number}: ${data.new_status}`;
 
     // TODO: Implement actual SMS sending
     // Example with Twilio:

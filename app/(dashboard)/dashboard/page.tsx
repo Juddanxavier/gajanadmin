@@ -25,21 +25,47 @@ import { Button } from '@/components/ui/button';
 import { ShipmentTrendsChart } from '@/components/dashboard/shipment-trends-chart';
 import { RecentActivity } from '@/components/dashboard/recent-activity';
 import { StatCard } from '@/components/dashboard/stat-card';
+import { WorldMapDotted } from '@/components/dashboard/world-map-dotted';
+import { getActiveShipmentDestinations } from '@/app/(dashboard)/shipments/actions/destinations';
+import { ShipmentRealtimeListener } from '@/components/dashboard/shipment-realtime-listener';
+import {
+  getShipmentStats,
+  getShipmentTrendsAction,
+  getShipments,
+} from '@/app/(dashboard)/shipments/actions';
 
 export default async function AdminPage() {
-  const shipmentService = new ShipmentService();
+  // Parallel Fetching using Cached Actions
+  const [statsRes, recentShipmentsRes, trendsRes, destinationsRes] =
+    await Promise.all([
+      getShipmentStats(),
+      getShipments(1, 5, {}, { id: 'updated_at', desc: true }),
+      getShipmentTrendsAction(90),
+      getActiveShipmentDestinations(),
+    ]);
 
-  // Parallel Fetching
-  const [stats, recentShipmentsRes, trends] = await Promise.all([
-    shipmentService.getStats(),
-    shipmentService.getShipments({
-      pageSize: 5,
-      sortBy: { field: 'updated_at', direction: 'desc' },
-    }),
-    shipmentService.getShipmentTrends(90),
-  ]);
+  const stats = statsRes.success
+    ? statsRes.data
+    : {
+        total: 0,
+        pending: 0,
+        in_transit: 0,
+        delivered: 0,
+        exception: 0,
+        avgDeliveryDays: 0,
+      };
+  const recentShipments =
+    recentShipmentsRes.success && recentShipmentsRes.data?.data
+      ? recentShipmentsRes.data.data
+      : [];
+  const trends = trendsRes.success ? trendsRes.data : [];
 
-  const recentShipments = recentShipmentsRes.data || [];
+  const destinations = destinationsRes.success
+    ? destinationsRes.data.map((d) => ({
+        ...d,
+        coordinates: [0, 0] as [number, number],
+      }))
+    : [];
 
   // Transform trends for charts
   // { date, total, delivered, exception }
@@ -230,11 +256,14 @@ export default async function AdminPage() {
           <ShipmentTrendsChart data={trends} />
         </div>
 
-        {/* Live Activity - Tall Vertical Column on the right */}
+        {/* World Map - Right side (50% width) */}
         <div className='col-span-1 md:col-span-2 lg:col-span-2 lg:row-span-2'>
-          <RecentActivity initialData={recentShipments} />
+          <WorldMapDotted destinations={destinations} />
         </div>
       </div>
+
+      {/* Realtime Listener (Invisible) */}
+      <ShipmentRealtimeListener />
     </div>
   );
 }

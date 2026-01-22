@@ -1,3 +1,5 @@
+/** @format */
+
 // Database types
 export interface Role {
   id: string;
@@ -121,14 +123,17 @@ export interface TenantDistribution {
   count: number;
 }
 
+// Role types
+export type RoleName = 'admin' | 'staff' | 'customer';
+
 // Form types
 export interface CreateUserInput {
   email: string;
   name?: string;
   password: string;
-  phone?: string; // optional phone number
-  role: string; // single role ID
-  tenant: string; // single tenant ID
+  phone?: string;
+  role: RoleName; // Strict role name type
+  tenant: string | null; // Allow NULL for global roles
 }
 
 export interface UpdateUserInput {
@@ -140,7 +145,7 @@ export interface UpdateUserInput {
 }
 
 // Server action response types
-export type ActionResponse<T = any> = 
+export type ActionResponse<T = any> =
   | { success: true; data: T; error?: never }
   | { success: false; error: string; data?: never; code?: string };
 
@@ -151,7 +156,13 @@ export interface PaginatedResponse<T> {
 }
 
 // Lead types
-export type LeadStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'archived' | 'deleted';
+export type LeadStatus =
+  | 'pending'
+  | 'processing'
+  | 'completed'
+  | 'failed'
+  | 'archived'
+  | 'deleted';
 
 export interface Lead {
   id: string;
@@ -163,7 +174,7 @@ export interface Lead {
   value: number;
   goods_type: string;
   status: LeadStatus;
-  
+
   // New fields
   name: string;
   email?: string;
@@ -191,6 +202,15 @@ export interface Lead {
 export interface LeadTableFilters {
   search?: string;
   status?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
+}
+
+export interface ShipmentTableFilters {
+  search?: string;
+  status?: string;
+  provider?: string;
+  tenant?: string;
   dateFrom?: Date;
   dateTo?: Date;
 }

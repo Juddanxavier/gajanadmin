@@ -29,7 +29,7 @@ export async function getLeads(
   page: number = 0,
   pageSize: number = 10,
   filters: LeadTableFilters = {},
-  sortBy?: { id: string; desc: boolean }
+  sortBy?: { id: string; desc: boolean },
 ): Promise<ActionResponse<PaginatedResponse<Lead>>> {
   try {
     const supabase = await createClient();
@@ -42,6 +42,24 @@ export async function getLeads(
     const userIsAdmin = await isAdmin();
     const userTenantIds = await getUserTenantIds();
 
+    // Determine effective tenant IDs
+    // If admin selects a specific tenant, restrict to that.
+    // Otherwise, limit to user's allowed tenants (or all if global admin).
+    let effectiveTenantIds: string[] | undefined = userIsAdmin
+      ? undefined
+      : userTenantIds;
+
+    if (filters.tenant && filters.tenant !== 'all') {
+      const requestedTenant = filters.tenant;
+      // Verify access: If not admin, requested tenant must be in userTenantIds
+      if (userIsAdmin || userTenantIds.includes(requestedTenant)) {
+        effectiveTenantIds = [requestedTenant];
+      } else {
+        // Requesting unauthorized tenant -> return empty
+        effectiveTenantIds = [];
+      }
+    }
+
     const service = new LeadsService(supabase);
 
     const result = await service.getLeads(
@@ -49,9 +67,9 @@ export async function getLeads(
       pageSize,
       {
         ...filters,
-        tenantIds: userIsAdmin ? undefined : userTenantIds,
+        tenantIds: effectiveTenantIds,
       },
-      sortBy
+      sortBy,
     );
 
     return successResponse(result);
@@ -65,7 +83,7 @@ export async function getLeads(
  */
 export async function updateLeadStatus(
   id: string,
-  status: LeadStatus
+  status: LeadStatus,
 ): Promise<ActionResponse> {
   try {
     const supabase = await createClient();
@@ -101,7 +119,7 @@ export async function getLeadStats() {
 
     const service = new LeadsService(supabase);
     const stats = await service.getStats(
-      userIsAdmin ? undefined : userTenantIds
+      userIsAdmin ? undefined : userTenantIds,
     );
 
     if (!stats && !userIsAdmin && userTenantIds.length === 0)
@@ -115,7 +133,7 @@ export async function getLeadStats() {
         completed: 0,
         failed: 0,
         totalValue: 0,
-      }
+      },
     );
   } catch (error) {
     return errorResponse(error);
@@ -134,7 +152,7 @@ export async function getLeadTrends(days: number = 30) {
     const service = new LeadsService(supabase);
     const trends = await service.getLeadTrends(
       days,
-      userIsAdmin ? undefined : userTenantIds
+      userIsAdmin ? undefined : userTenantIds,
     );
 
     return successResponse(trends);
@@ -155,7 +173,7 @@ export async function getLead(id: string): Promise<ActionResponse<Lead>> {
     const service = new LeadsService(supabase);
     const lead = await service.getLead(
       id,
-      userIsAdmin ? undefined : userTenantIds
+      userIsAdmin ? undefined : userTenantIds,
     );
 
     if (!lead) return errorResponse(new Error('Lead not found'));
@@ -171,7 +189,7 @@ export async function getLead(id: string): Promise<ActionResponse<Lead>> {
  */
 export async function assignLeadAction(
   leadId: string,
-  userId: string | null
+  userId: string | null,
 ): Promise<ActionResponse> {
   try {
     const supabase = await createClient();

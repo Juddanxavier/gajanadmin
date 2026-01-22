@@ -38,7 +38,7 @@ export class ShipmentService {
 
   private async getProvider(
     name: string = 'track123',
-    tenantId?: string
+    tenantId?: string,
   ): Promise<ShipmentProvider> {
     switch (name) {
       case 'track123': {
@@ -55,7 +55,7 @@ export class ShipmentService {
       userId?: string;
       invoiceDetails?: any;
       provider?: string;
-    }
+    },
   ) {
     const providerName = params.provider || 'track123';
 
@@ -70,7 +70,7 @@ export class ShipmentService {
     if (existing) {
       if (existing.deleted_at) {
         console.log(
-          `[ShipmentService] Restoring soft-deleted shipment ${params.tracking_number}`
+          `[ShipmentService] Restoring soft-deleted shipment ${params.tracking_number}`,
         );
         const { data: restored, error: restoreError } = await this.client
           .from('shipments')
@@ -90,15 +90,15 @@ export class ShipmentService {
 
         if (restoreError)
           throw new Error(
-            `Failed to restore shipment: ${restoreError.message}`
+            `Failed to restore shipment: ${restoreError.message}`,
           );
         return restored;
       } else {
         console.log(
-          `[ShipmentService] Shipment ${params.tracking_number} already exists (active).`
+          `[ShipmentService] Shipment ${params.tracking_number} already exists (active).`,
         );
         throw new Error(
-          `Tracking code ${params.tracking_number} already exists in the system.`
+          `Tracking code ${params.tracking_number} already exists in the system.`,
         );
       }
     }
@@ -137,6 +137,27 @@ export class ShipmentService {
 
     if (trackingResult.checkpoints && trackingResult.checkpoints.length > 0) {
       await this.saveEvents(shipment.id, trackingResult.checkpoints);
+    }
+
+    // Trigger Initial Notification
+    if (shipment) {
+      try {
+        const { NotificationService } =
+          await import('@/lib/notifications/service');
+        const notifier = new NotificationService();
+        await notifier.notifyStatusChange({
+          shipmentId: shipment.id,
+          trackingCode: shipment.carrier_tracking_code,
+          status: shipment.status,
+          oldStatus: undefined, // New shipment
+          customerName: shipment.customer_details?.name,
+          customerEmail: shipment.customer_details?.email,
+          customerPhone: shipment.customer_details?.phone,
+          location: shipment.latest_location,
+        });
+      } catch (e) {
+        console.error('Failed to trigger initial notification:', e);
+      }
     }
 
     return shipment;
@@ -201,14 +222,14 @@ export class ShipmentService {
 
     const provider = await this.getProvider(
       shipment.provider,
-      shipment.tenant_id
+      shipment.tenant_id,
     );
     const carrierToUse = overrideCarrierCode || shipment.carrier_id;
 
     try {
       const result = await provider.getTracking(
         shipment.carrier_tracking_code,
-        carrierToUse
+        carrierToUse,
       );
 
       if (overrideCarrierCode) {
@@ -225,7 +246,7 @@ export class ShipmentService {
 
   async updateShipment(
     shipmentId: string,
-    updates: Partial<CreateShipmentParams> & { status?: string }
+    updates: Partial<CreateShipmentParams> & { status?: string },
   ) {
     const updatePayload: any = {};
     if (updates.carrier_code) updatePayload.carrier_id = updates.carrier_code;
@@ -272,18 +293,18 @@ export class ShipmentService {
         try {
           const provider = await this.getProvider(
             shipment.provider,
-            shipment.tenant_id
+            shipment.tenant_id,
           );
           if (provider.stopTracking) {
             await provider.stopTracking(
               shipment.carrier_tracking_code,
-              shipment.carrier_id
+              shipment.carrier_id,
             );
           }
         } catch (e) {
           console.warn(
             `[ShipmentService] Failed to stop tracking remotely for ${shipment.carrier_tracking_code}`,
-            e
+            e,
           );
           // Continue with local delete even if remote fails
         }
@@ -331,17 +352,17 @@ export class ShipmentService {
 
     const total = data.length;
     const pending = data.filter((s) =>
-      ['pending', 'created', 'info_received'].includes(s.status)
+      ['pending', 'created', 'info_received'].includes(s.status),
     ).length;
     const in_transit = data.filter((s) =>
-      ['in_transit', 'out_for_delivery'].includes(s.status)
+      ['in_transit', 'out_for_delivery'].includes(s.status),
     ).length;
 
     const deliveredShipments = data.filter((s) => s.status === 'delivered');
     const delivered = deliveredShipments.length;
 
     const exception = data.filter((s) =>
-      ['exception', 'attempt_fail', 'expired'].includes(s.status)
+      ['exception', 'attempt_fail', 'expired'].includes(s.status),
     ).length;
 
     // Calculate Average Delivery Time (in days)
@@ -353,7 +374,7 @@ export class ShipmentService {
         return acc + (end - start);
       }, 0);
       avgDeliveryDays = Math.round(
-        totalDurationMs / delivered / (1000 * 60 * 60 * 24)
+        totalDurationMs / delivered / (1000 * 60 * 60 * 24),
       );
     }
 
@@ -376,7 +397,7 @@ export class ShipmentService {
       .select('code, name_en, name_cn, homepage, logo_url');
     if (query.length >= 2) {
       dbQuery = dbQuery.or(
-        `code.ilike.%${query}%,name_en.ilike.%${query}%,name_cn.ilike.%${query}%`
+        `code.ilike.%${query}%,name_en.ilike.%${query}%,name_cn.ilike.%${query}%`,
       );
     }
     const { data: dbCarriers } = await dbQuery.limit(50);
@@ -398,7 +419,7 @@ export class ShipmentService {
         (c) =>
           !query ||
           c.code.toLowerCase().includes(lowerQ) ||
-          c.name.toLowerCase().includes(lowerQ)
+          c.name.toLowerCase().includes(lowerQ),
       )
       .slice(0, 50);
   }
@@ -429,7 +450,7 @@ export class ShipmentService {
     if (error) throw error;
     if (!shipments || shipments.length === 0) {
       console.warn(
-        `[ShipmentService] No shipment found for tracking number: ${trackNo}`
+        `[ShipmentService] No shipment found for tracking number: ${trackNo}`,
       );
       return null;
     }
@@ -458,7 +479,7 @@ export class ShipmentService {
         .sort(
           (a: any, b: any) =>
             new Date(b.occurred_at).getTime() -
-            new Date(a.occurred_at).getTime()
+            new Date(a.occurred_at).getTime(),
         );
 
       const trackingResult: TrackingResult = {
@@ -517,7 +538,7 @@ export class ShipmentService {
   // Private helpers
   private async updateShipmentFromTrackingResult(
     shipmentId: string,
-    result: TrackingResult
+    result: TrackingResult,
   ) {
     const { data: existing } = await this.client
       .from('shipments')
@@ -578,7 +599,7 @@ export class ShipmentService {
           description: cp.description,
           raw_data: cp,
         },
-        { onConflict: 'shipment_id, occurred_at, status' }
+        { onConflict: 'shipment_id, occurred_at, status' },
       );
       if (error) console.error('Upsert Event Error:', error);
     }

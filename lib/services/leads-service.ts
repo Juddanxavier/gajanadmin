@@ -20,7 +20,7 @@ export class LeadsService {
     page: number = 0,
     pageSize: number = 10,
     filters: LeadTableFilters & { tenantIds?: string[] } = {},
-    sortBy?: { id: string; desc: boolean }
+    sortBy?: { id: string; desc: boolean },
   ): Promise<PaginatedResponse<Lead>> {
     let query = this.client.from('leads').select('*', { count: 'exact' });
 
@@ -62,10 +62,10 @@ export class LeadsService {
     // Enrich with customer details and assignee details using Admin Client
     const adminClient = createAdminClient();
     const customerIds = Array.from(
-      new Set(leads?.map((l) => l.customer_id) || [])
+      new Set(leads?.map((l) => l.customer_id).filter(Boolean) || []),
     );
     const assigneeIds = Array.from(
-      new Set(leads?.map((l) => l.assigned_to).filter(Boolean) || [])
+      new Set(leads?.map((l) => l.assigned_to).filter(Boolean) || []),
     );
 
     const userMap = new Map();
@@ -92,7 +92,7 @@ export class LeadsService {
         } catch (err) {
           console.warn(`Failed to fetch user ${uid}:`, err);
         }
-      })
+      }),
     );
 
     const data: Lead[] = (leads || []).map((lead) => ({

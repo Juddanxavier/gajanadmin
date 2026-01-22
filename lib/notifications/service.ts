@@ -1,3 +1,4 @@
+/** @format */
 
 import { render } from '@react-email/render';
 import ShipmentNotificationEmail from '@/emails/shipment-notification';
@@ -27,113 +28,93 @@ export class NotificationService {
 
   /**
    * Send notification for status change.
+   * Implements a 30-second debounce period.
    */
   async notifyStatusChange(payload: NotificationPayload) {
-    console.log(`[NotificationService] Processing update for ${payload.trackingCode}: ${payload.oldStatus} -> ${payload.status}`);
-    
-    // 1. Get Tenant & Settings (for Triggers & Templates)
+    console.log(
+      `[NotificationService] Debouncing update for ${payload.trackingCode}: ${payload.oldStatus} -> ${payload.status}`,
+    );
+
+    // 1. Get Tenant & Settings (for Triggers)
     const { data: shipment } = await this.client
-        .from('shipments')
-        .select('tenant_id')
-        .eq('id', payload.shipmentId)
-        .single();
-    
+      .from('shipments')
+      .select('tenant_id, customer_details')
+      .eq('id', payload.shipmentId)
+      .single();
+
     if (!shipment) {
-        console.error('[NotificationService] Shipment not found');
-        return;
+      console.error('[NotificationService] Shipment not found');
+      return;
     }
 
     const { data: settings } = await this.client
-        .from('settings')
-        .select('*')
-        .eq('tenant_id', shipment.tenant_id)
-        .single();
+      .from('settings')
+      .select('*')
+      .eq('tenant_id', shipment.tenant_id)
+      .single();
 
     // Default triggers
-    const triggers = settings?.notification_triggers || ["delivered", "exception", "out_for_delivery", "failed"];
-    
+    const triggers = settings?.notification_triggers || [
+      'pending',
+      'info_received',
+      'delivered',
+      'exception',
+      'out_for_delivery',
+      'failed',
+    ];
+
     // Check Status Trigger
-    const shouldNotify = triggers.includes(payload.status) || triggers.includes('all');
+    const shouldNotify =
+      triggers.includes(payload.status) || triggers.includes('all');
     if (!shouldNotify) {
-        console.log(`[NotificationService] Status '${payload.status}' not in triggers. Skipping.`);
-        return;
+      console.log(
+        `[NotificationService] Status '${payload.status}' not in triggers. Skipping.`,
+      );
+      return;
     }
 
-    const emailEnabled = settings?.email_notifications_enabled ?? true;
-    const smsEnabled = settings?.sms_notifications_enabled ?? false;
+    // Upsert into notifications table for debouncing
+    // If a record for this shipment already exists and hasn't been sent, we update its status and push back the schedule.
+    const scheduledFor = new Date(Date.now() + 30 * 1000).toISOString();
 
-    // Prepare Variables
-    const variables = {
-        trackingCode: payload.trackingCode,
-        status: payload.status.toUpperCase(),
-        customerName: payload.customerName || 'Customer',
-        location: payload.location,
-        trackingUrl: `http://localhost:3000/track/${payload.trackingCode}`, // TODO: Use env
-        companyName: settings?.company_name || 'Logistics Team'
-    };
+    const { data: existingQueue } = await this.client
+      .from('notifications')
+      .select('id')
+      .eq('shipment_id', payload.shipmentId)
+      .is('sent_at', null)
+      .maybeSingle();
 
-    // 2. Send Email via Engine
-    if (emailEnabled && payload.customerEmail) {
-        // Generate Header Logic (Subject)
-        const subjectTemplate = settings?.email_template_subject || 'Shipment Update: {{trackingCode}} - {{status}}';
-        const subject = renderTemplate(subjectTemplate, variables);
-
-        // Generate Body Logic (Use React Email)
-        let html;
-        try {
-            html = await render(
-               ShipmentNotificationEmail({
-                  recipientName: payload.customerName || 'Customer',
-                  status: payload.status,
-                  trackingNumber: payload.trackingCode,
-                  referenceCode: payload.trackingCode,
-                  trackingUrl: variables.trackingUrl,
-                  companyName: settings?.company_name || 'Logistics Team',
-                  qrCodeDataUrl: '' // We can generate this if needed, or leave empty
-               })
-            );
-        } catch (err) {
-            console.error('[NotificationService] React Email Render Error:', err);
-            // Fallback to basic template
-             const bodyTemplate = settings?.email_template_body || 'Hello {{customerName}},<br/><br/>Your shipment ({{trackingCode}}) status has changed to: <b>{{status}}</b>.<br/><br/><a href="{{trackingUrl}}">Track here</a><br/><br/>Regards,<br/>{{companyName}}';
-             html = renderTemplate(bodyTemplate, variables);
-        }
-
-        await this.engine.sendEmail(shipment.tenant_id, {
-            to: payload.customerEmail,
-            subject: subject,
-            html: html,
-            text: html.replace(/<[^>]*>?/gm, ''), // Simple strip tags
-            shipmentId: payload.shipmentId,
-            triggerStatus: payload.status
-        });
-    }
-
-    // 3. Send SMS via Engine
-    if (smsEnabled && payload.customerPhone) {
-        const smsTemplate = settings?.sms_template || 'Shipment {{trackingCode}}: Status is now {{status}}. Track: {{trackingUrl}}';
-        const body = renderTemplate(smsTemplate, variables);
-
-        await this.engine.sendSMS(shipment.tenant_id, {
-            to: payload.customerPhone,
-            body: body,
-            shipmentId: payload.shipmentId,
-            triggerStatus: payload.status
-        });
-    }
-
-    // 4. Send Webhook via Engine
-    if (settings?.webhook_url) {
-        await this.engine.sendWebhook(shipment.tenant_id, {
-            url: settings.webhook_url,
-            data: {
-                ...payload,
-                timestamp: new Date().toISOString(),
-                event: 'shipment_update'
-            },
-            shipmentId: payload.shipmentId,
-            triggerStatus: payload.status
-        });
+    if (existingQueue) {
+      await this.client
+        .from('notifications')
+        .update({
+          type: 'status_change',
+          data: {
+            ...payload,
+            updated_at: new Date().toISOString(),
+          },
+          scheduled_for: scheduledFor,
+          retry_count: 0, // Reset retries on new update
+        })
+        .eq('id', existingQueue.id);
+      console.log(
+        `[NotificationService] Updated existing queue item ${existingQueue.id}. New schedule: ${scheduledFor}`,
+      );
+    } else {
+      await this.client.from('notifications').insert({
+        shipment_id: payload.shipmentId,
+        tenant_id: shipment.tenant_id,
+        recipient_email:
+          payload.customerEmail || shipment.customer_details?.email,
+        recipient_phone:
+          payload.customerPhone || shipment.customer_details?.phone,
+        type: 'status_change',
+        data: payload,
+        scheduled_for: scheduledFor,
+      });
+      console.log(
+        `[NotificationService] Created new queue item. Schedule: ${scheduledFor}`,
+      );
     }
   }
 }

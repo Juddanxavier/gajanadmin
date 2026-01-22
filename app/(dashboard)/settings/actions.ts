@@ -1,3 +1,5 @@
+/** @format */
+
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
@@ -16,26 +18,77 @@ async function checkAdminOrStaff() {
 // Get current tenant ID
 async function getCurrentTenantId() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   if (!user) return null;
-  
+
   const { data: tenants } = await supabase
     .from('user_tenants')
     .select('tenant_id')
     .eq('user_id', user.id)
     .limit(1);
-  
-  return tenants?.[0]?.tenant_id || null;
+
+  if (tenants && tenants.length > 0) {
+    return tenants[0].tenant_id;
+  }
+
+  // Fallback for Global Admins who might not be in user_tenants
+  // If they are an admin, give them access to the "first" tenant (or specific one)
+  // This is a simplified approach for single-tenant-like admin behavior
+  const isUserAdmin = await isAdmin();
+  if (isUserAdmin) {
+    const { data: allTenants } = await supabase
+      .from('tenants')
+      .select('id')
+      .limit(1);
+
+    return allTenants?.[0]?.id || null;
+  }
+
+  return null;
+}
+
+// Helper to get target tenant ID (either specific override for admins, or current user's tenant)
+async function getTargetTenantId(overrideTenantId?: string) {
+  if (overrideTenantId) {
+    const isUserAdmin = await isAdmin();
+    if (isUserAdmin) return overrideTenantId;
+  }
+  return await getCurrentTenantId();
 }
 
 /**
- * Get settings for current tenant
+ * Get all tenants (Admin only)
  */
-export async function getSettings() {
+export async function getAllTenants() {
   try {
-    const tenantId = await getCurrentTenantId();
-    if (!tenantId) {
+    const isUserAdmin = await isAdmin();
+    if (!isUserAdmin) return { success: false, error: 'Permission denied' };
+
+    // Use admin client to bypass RLS
+    const adminClient = createAdminClient();
+    const { data, error } = await adminClient
+      .from('tenants')
+      .select('id, name, country_code, slug')
+      .order('name');
+
+    if (error) throw error;
+    return { success: true, data };
+  } catch (error: any) {
+    console.error('[getAllTenants] Error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get settings for current tenant (or specified tenant for admins)
+ */
+export async function getSettings(tenantId?: string) {
+  try {
+    const targetId = await getTargetTenantId(tenantId);
+    if (!targetId) {
       return { success: false, error: 'No tenant found' };
     }
 
@@ -43,7 +96,7 @@ export async function getSettings() {
     const { data, error } = await supabase
       .from('settings')
       .select('*')
-      .eq('tenant_id', tenantId)
+      .eq('tenant_id', targetId)
       .single();
 
     if (error) {
@@ -67,25 +120,25 @@ export async function getSettings() {
 /**
  * Update settings for current tenant
  */
-export async function updateSettings(updates: any) {
+export async function updateSettings(updates: any, tenantId?: string) {
   try {
     const isStaff = await checkAdminOrStaff();
     if (!isStaff) {
       return { success: false, error: 'Permission denied' };
     }
 
-    const tenantId = await getCurrentTenantId();
-    if (!tenantId) {
+    const targetId = await getTargetTenantId(tenantId);
+    if (!targetId) {
       return { success: false, error: 'No tenant found' };
     }
 
     const adminClient = createAdminClient();
-    
+
     // Check if settings exist
     const { data: existing } = await adminClient
       .from('settings')
       .select('id')
-      .eq('tenant_id', tenantId)
+      .eq('tenant_id', targetId)
       .single();
 
     let result;
@@ -97,7 +150,7 @@ export async function updateSettings(updates: any) {
           ...updates,
           updated_at: new Date().toISOString(),
         })
-        .eq('tenant_id', tenantId)
+        .eq('tenant_id', targetId)
         .select()
         .single();
     } else {
@@ -105,7 +158,7 @@ export async function updateSettings(updates: any) {
       result = await adminClient
         .from('settings')
         .insert({
-          tenant_id: tenantId,
+          tenant_id: targetId,
           ...updates,
         })
         .select()
@@ -115,7 +168,7 @@ export async function updateSettings(updates: any) {
     if (result.error) throw result.error;
 
     // Clear settings cache for this tenant
-    clearSettingsCache(tenantId);
+    clearSettingsCache(targetId);
 
     revalidatePath('/settings');
     return { success: true, data: result.data };
@@ -148,7 +201,7 @@ export async function testSMTPConnection(config: {
     }
 
     // Simulate test
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     return { success: true, message: 'SMTP connection successful' };
   } catch (error: any) {
@@ -211,7 +264,7 @@ function getDefaultSettings() {
     timezone: 'UTC',
     date_format: 'MM/DD/YYYY',
     currency: 'USD',
-    
+
     // Notifications
     email_notifications_enabled: true,
     sms_notifications_enabled: false,
@@ -222,7 +275,7 @@ function getDefaultSettings() {
     smtp_password: '',
     smtp_from_email: '',
     smtp_from_name: '',
-    
+
     // Tracking
     default_provider: 'track123',
     track123_api_key: '',
@@ -230,7 +283,7 @@ function getDefaultSettings() {
     auto_sync_frequency: '6h',
     sync_retry_attempts: 3,
     webhook_url: '',
-    
+
     // User & Access
     default_user_role: 'customer',
     password_min_length: 8,
@@ -239,13 +292,13 @@ function getDefaultSettings() {
     password_require_symbols: false,
     session_timeout_minutes: 1440,
     two_factor_enabled: false,
-    
+
     // Appearance
     theme: 'system',
     primary_color: '#3b82f6',
     table_density: 'comfortable',
     default_page_size: 10,
-    
+
     // Shipment
     default_carrier_preference: [],
     auto_archive_days: 90,
@@ -253,4 +306,153 @@ function getDefaultSettings() {
     export_format: 'csv',
     custom_fields: [],
   };
+}
+
+/**
+ * Get email templates for current tenant
+ */
+export async function getEmailTemplates(tenantId?: string) {
+  try {
+    const targetId = await getTargetTenantId(tenantId);
+    if (!targetId) {
+      return { success: false, error: 'No tenant found' };
+    }
+
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('email_templates')
+      .select('*')
+      .eq('tenant_id', targetId);
+
+    if (error) throw error;
+
+    return { success: true, data };
+  } catch (error: any) {
+    console.error('[getEmailTemplates] Error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Update email template
+ */
+export async function updateEmailTemplate(
+  templateId: string,
+  updates: any,
+  tenantId?: string,
+) {
+  try {
+    const isStaff = await checkAdminOrStaff();
+    if (!isStaff) return { success: false, error: 'Permission denied' };
+
+    const targetId = await getTargetTenantId(tenantId);
+    if (!targetId) return { success: false, error: 'No tenant found' };
+
+    const adminClient = createAdminClient();
+
+    // If templateId is provided, update it. If not (or if it's 'new'), treat as insert/upsert based on type
+    let result;
+    if (templateId && templateId !== 'new') {
+      result = await adminClient
+        .from('email_templates')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', templateId)
+        .eq('tenant_id', targetId) // Ensure tenant ownership
+        .select()
+        .single();
+    } else {
+      // Logic for creating/upserting if ID not present (should ideally handle creates only if we allow creating new types)
+      // For now assuming we are updating existing templates seeded via SQL, but let's handle upsert by type
+      result = await adminClient
+        .from('email_templates')
+        .upsert(
+          {
+            tenant_id: targetId,
+            ...updates,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'tenant_id, type' },
+        )
+        .select()
+        .single();
+    }
+
+    if (result.error) throw result.error;
+
+    revalidatePath('/settings');
+    return { success: true, data: result.data };
+  } catch (error: any) {
+    console.error('[updateEmailTemplate] Error:', error);
+    return { success: false, error: error.message };
+  }
+}
+// ... (existing exports)
+
+/**
+ * Get notification config from tenant_notification_configs
+ */
+export async function getNotificationConfig(tenantId?: string) {
+  try {
+    const targetId = await getTargetTenantId(tenantId);
+    if (!targetId) return { success: false, error: 'No tenant found' };
+
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('tenant_notification_configs')
+      .select('*')
+      .eq('tenant_id', targetId)
+      .eq('channel', 'email')
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+
+    return { success: true, data };
+  } catch (error: any) {
+    console.error('[getNotificationConfig] Error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Update notification config
+ */
+export async function updateNotificationConfig(config: any, tenantId?: string) {
+  try {
+    const isStaff = await checkAdminOrStaff();
+    if (!isStaff) return { success: false, error: 'Permission denied' };
+
+    const targetId = await getTargetTenantId(tenantId);
+    if (!targetId) return { success: false, error: 'No tenant found' };
+
+    const adminClient = createAdminClient();
+
+    // Upsert config
+    const { data, error } = await adminClient
+      .from('tenant_notification_configs')
+      .upsert(
+        {
+          tenant_id: targetId,
+          channel: 'email',
+          provider_id: config.provider_id,
+          credentials: config.credentials,
+          config: config.config,
+          is_active: true,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'tenant_id, channel' },
+      )
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    revalidatePath('/settings');
+    return { success: true, data };
+  } catch (error: any) {
+    console.error('[updateNotificationConfig] Error:', error);
+    return { success: false, error: error.message };
+  }
 }

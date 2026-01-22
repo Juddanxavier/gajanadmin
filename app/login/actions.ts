@@ -1,11 +1,16 @@
+/** @format */
+
 'use server';
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { ActionResponse } from '@/lib/types';
 import { env } from '@/lib/env';
+import { checkUserAccess } from '@/app/actions/auth';
+import { redirect } from 'next/navigation';
 
 export async function signInWithMagicLinkAction(
-  email: string
+  email: string,
 ): Promise<ActionResponse<{ message: string }>> {
   console.log('[signInWithMagicLinkAction] Starting for:', email);
 
@@ -16,25 +21,29 @@ export async function signInWithMagicLinkAction(
     }
 
     const adminClient = createAdminClient();
-    
+
     // 2. Determine Redirect URL
     // Use the site URL from env or default to localhost
     const siteUrl = env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
     const redirectUrl = `${siteUrl}/dashboard`;
-    
+
     console.log('[signInWithMagicLinkAction] Redirect URL:', redirectUrl);
 
     // 3. Generate Magic Link
-    const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
-      type: 'magiclink',
-      email: email,
-      options: {
-        redirectTo: redirectUrl,
-      },
-    });
+    const { data: linkData, error: linkError } =
+      await adminClient.auth.admin.generateLink({
+        type: 'magiclink',
+        email: email,
+        options: {
+          redirectTo: redirectUrl,
+        },
+      });
 
     if (linkError) {
-      console.error('[signInWithMagicLinkAction] Generate link error:', linkError);
+      console.error(
+        '[signInWithMagicLinkAction] Generate link error:',
+        linkError,
+      );
       return { success: false, error: 'Failed to generate login link' };
     }
 
@@ -89,26 +98,108 @@ export async function signInWithMagicLinkAction(
       </html>
     `;
 
-    const { error: sendError } = await adminClient.functions.invoke('send-email', {
-      body: {
-        to: email,
-        subject: 'Sign in to Gajan Tracking',
-        html: emailHtml,
+    const { error: sendError } = await adminClient.functions.invoke(
+      'send-email',
+      {
+        body: {
+          to: email,
+          subject: 'Sign in to Gajan Tracking',
+          html: emailHtml,
+        },
       },
-    });
+    );
 
     if (sendError) {
       console.error('[signInWithMagicLinkAction] Send email error:', sendError);
       return { success: false, error: 'Failed to send login email' };
     }
 
-    return { 
-      success: true, 
-      data: { message: 'Login link sent to your email' }
+    return {
+      success: true,
+      data: { message: 'Login link sent to your email' },
     };
-
   } catch (error) {
     console.error('[signInWithMagicLinkAction] Unexpected error:', error);
     return { success: false, error: 'An unexpected error occurred' };
   }
+}
+
+export async function loginWithPassword(
+  formData: FormData,
+): Promise<ActionResponse<any>> {
+  const email = formData.get('email') as string;
+  const password = formData.get('password') as string;
+
+  if (!email || !password) {
+    return { success: false, error: 'Email and password are required' };
+  }
+
+  console.log('[loginWithPassword] Attempting login for:', email);
+
+  try {
+    const supabase = await createClient();
+
+    const { data: authData, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      console.error('[loginWithPassword] Supabase Auth Error:', error);
+      return { success: false, error: error.message };
+    }
+
+    console.log(
+      '[loginWithPassword] Authentication successful. Checking role access...',
+    );
+
+    // Check Access immediately
+    const { authorized } = await checkUserAccess();
+
+    if (!authorized) {
+      console.warn('[loginWithPassword] User unauthorized. Signing out.');
+      await supabase.auth.signOut();
+      return {
+        success: false,
+        error:
+          'You do not have permission to access the admin portal (Admin/Staff only).',
+      };
+    }
+
+    console.log('[loginWithPassword] User authorized. Login successful.');
+
+    return { success: true, data: { user: authData.user } };
+  } catch (error: any) {
+    console.error('[loginWithPassword] Unexpected Exception:', error);
+
+    // Improve error message for network issues
+    if (
+      error?.code === 'UND_ERR_CONNECT_TIMEOUT' ||
+      error?.cause?.code === 'UND_ERR_CONNECT_TIMEOUT'
+    ) {
+      return {
+        success: false,
+        error: 'Connection Timeout: Unable to reach authentication server.',
+      };
+    }
+    if (error?.message?.includes('fetch failed')) {
+      return {
+        success: false,
+        error: 'Network Error: Authentication server unreachable.',
+      };
+    }
+
+    return {
+      success: false,
+      error: error.message || 'An unexpected error occurred during login.',
+    };
+  }
+}
+
+function isRedirectError(error: any) {
+  return (
+    error &&
+    (error.digest?.startsWith('NEXT_REDIRECT') ||
+      error.message === 'NEXT_REDIRECT')
+  );
 }

@@ -49,7 +49,7 @@ export const features = {
   enableProfiling: process.env.NEXT_PUBLIC_ENABLE_PROFILING === 'true',
   enableRateLimiting: process.env.NEXT_PUBLIC_ENABLE_RATE_LIMITING === 'true',
   maxRequestsPerMinute: parseInt(
-    process.env.NEXT_PUBLIC_MAX_REQUESTS_PER_MINUTE || '60'
+    process.env.NEXT_PUBLIC_MAX_REQUESTS_PER_MINUTE || '60',
   ),
 };
 
@@ -70,16 +70,16 @@ if (isDevelopment) {
   console.log('🌐 App URL:', app.url);
   console.log(
     '📊 Mock Data:',
-    features.enableMockData ? 'Enabled' : 'Disabled'
+    features.enableMockData ? 'Enabled' : 'Disabled',
   );
   console.log(
     '🎨 Animations:',
-    features.disableAnimations ? 'Disabled' : 'Enabled'
+    features.disableAnimations ? 'Disabled' : 'Enabled',
   );
 }
 
 // Export all as default
-export default {
+const config = {
   isProduction,
   isDevelopment,
   isTest,
@@ -90,3 +90,5 @@ export default {
   features,
   monitoring,
 };
+
+export default config;

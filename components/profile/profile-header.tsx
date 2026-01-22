@@ -1,153 +1,228 @@
+/** @format */
+
 'use client';
 
-import { useState } from 'react';
-import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Camera, Mail, Calendar } from 'lucide-react';
-import type { UserProfile, ProfileStats } from '@/lib/types';
-import { uploadAvatarAction } from '@/app/(dashboard)/profile/actions';
-import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Camera,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  Building2,
+  Globe,
+  Shield,
+  ShieldCheck,
+  User,
+} from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { getUserGradient } from '@/lib/utils';
+import { CountryFlag } from '@/components/ui/country-flag';
+import { useRef } from 'react';
+import { Loader2 } from 'lucide-react';
 
 interface ProfileHeaderProps {
-  profile: UserProfile | null;
-  stats: ProfileStats | null;
-  userEmail: string;
-  onProfileUpdate: (profile: UserProfile) => void;
+  data: {
+    userId: string;
+    displayName: string;
+    email: string;
+    isEmailVerified?: boolean;
+    phone?: string;
+    company?: string;
+    city?: string;
+    country?: string;
+    avatarUrl?: string;
+    roles: string[];
+    tenants: { name: string; countryCode?: string }[];
+    isGlobalAdmin: boolean;
+    joinedAt?: string;
+    lastLogin?: string;
+  };
+  onAvatarUpload: (file: File) => void;
+  uploading: boolean;
+  editable: boolean;
 }
 
-export default function ProfileHeader({
-  profile,
-  stats,
-  userEmail,
-  onProfileUpdate,
+export function ProfileHeader({
+  data,
+  onAvatarUpload,
+  uploading,
+  editable,
 }: ProfileHeaderProps) {
-  const { toast } = useToast();
-  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const gradient = getUserGradient(data.userId);
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('avatar', file);
-
-      const result = await uploadAvatarAction(formData);
-
-      if (result.success && profile) {
-        onProfileUpdate({ ...profile, avatar_url: result.data.url });
-        toast({
-          title: 'Success',
-          description: 'Avatar updated successfully',
-        });
-      } else {
-        toast({
-          title: 'Error',
-          description: result.error || 'Failed to upload avatar',
-          variant: 'destructive',
-        });
-      }
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to upload avatar',
-        variant: 'destructive',
-      });
-    } finally {
-      setUploading(false);
+  const handleAvatarClick = () => {
+    if (editable && !uploading) {
+      fileInputRef.current?.click();
     }
   };
 
-  const getInitials = (name: string | null, email: string) => {
-    if (name) {
-      return name
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      onAvatarUpload(file);
     }
-    return email.slice(0, 2).toUpperCase();
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   return (
-    <Card className="overflow-hidden">
-      {/* Cover Image */}
-      <div className="h-32 bg-gradient-to-r from-primary/20 via-primary/10 to-background" />
+    <div className='relative mb-8 rounded-xl overflow-hidden bg-card border shadow-sm'>
+      {/* Cover Image - Gradient */}
+      <div
+        className='h-32 w-full absolute top-0 left-0 z-0'
+        style={{ background: gradient }}
+      />
 
-      <div className="px-6 pb-6">
-        {/* Avatar & Name */}
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between -mt-16 mb-4">
-          <div className="flex items-end gap-4">
-            <div className="relative">
-              <Avatar className="h-32 w-32 border-4 border-background">
-                <AvatarImage src={profile?.avatar_url || undefined} />
-                <AvatarFallback className="text-2xl">
-                  {getInitials(profile?.display_name || null, userEmail)}
+      <div className='pt-20 px-6 pb-6 relative z-10'>
+        <div className='flex flex-col md:flex-row gap-6 items-start'>
+          {/* Avatar Section */}
+          <div className='relative group'>
+            <div
+              className={`h-28 w-28 rounded-full border-4 border-card shadow-lg overflow-hidden bg-muted flex items-center justify-center relative ${editable ? 'cursor-pointer' : ''}`}
+              onClick={handleAvatarClick}>
+              <Avatar className='h-full w-full'>
+                <AvatarImage src={data.avatarUrl} className='object-cover' />
+                <AvatarFallback className='text-2xl font-bold bg-muted'>
+                  {getInitials(data.displayName)}
                 </AvatarFallback>
               </Avatar>
-              <label
-                htmlFor="avatar-upload"
-                className="absolute bottom-0 right-0 p-2 bg-primary text-primary-foreground rounded-full cursor-pointer hover:bg-primary/90 transition-colors"
-              >
-                <Camera className="h-4 w-4" />
-                <input
-                  id="avatar-upload"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  onChange={handleAvatarUpload}
-                  disabled={uploading}
-                />
-              </label>
+
+              {/* Upload Overlay */}
+              {editable && (
+                <div className='absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]'>
+                  {uploading ? (
+                    <Loader2 className='h-6 w-6 text-white animate-spin' />
+                  ) : (
+                    <Camera className='h-6 w-6 text-white' />
+                  )}
+                </div>
+              )}
+            </div>
+            <input
+              type='file'
+              ref={fileInputRef}
+              className='hidden'
+              accept='image/*'
+              onChange={handleFileChange}
+              disabled={uploading}
+            />
+          </div>
+
+          {/* User Info Section */}
+          <div className='flex-1 mt-2 space-y-2'>
+            <div className='flex flex-col md:flex-row md:items-center justify-between gap-4'>
+              <div>
+                <h1 className='text-2xl font-bold text-foreground flex items-center gap-2'>
+                  {data.displayName}
+                  {data.isGlobalAdmin && (
+                    <ShieldCheck className='h-5 w-5 text-blue-500' /> // Using standard color for now
+                  )}
+                </h1>
+                <p className='text-muted-foreground flex items-center gap-2 text-sm'>
+                  @{data.email.split('@')[0]}
+                  <span className='text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground font-medium'>
+                    {data.roles.join(', ') || 'User'}
+                  </span>
+                </p>
+              </div>
+
+              {/* Stats/Badges Row */}
+              <div className='flex flex-wrap gap-2'>
+                {data.tenants.length > 0 && (
+                  <div className='flex items-center -space-x-2 mr-2'>
+                    {data.tenants.slice(0, 3).map((t, i) => (
+                      <div
+                        key={i}
+                        className='h-8 w-8 rounded-full border-2 border-card bg-muted flex items-center justify-center text-xs font-bold'
+                        title={t.name}>
+                        {t.countryCode ? (
+                          <CountryFlag
+                            countryCode={t.countryCode}
+                            className='h-4 w-4'
+                          />
+                        ) : (
+                          t.name[0] || '?'
+                        )}
+                      </div>
+                    ))}
+                    {data.tenants.length > 3 && (
+                      <div className='h-8 w-8 rounded-full border-2 border-card bg-muted flex items-center justify-center text-xs text-muted-foreground'>
+                        +{data.tenants.length - 3}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="mb-2">
-              <h2 className="text-2xl font-bold">
-                {profile?.display_name || 'User'}
-              </h2>
-              <div className="flex items-center gap-2 text-muted-foreground mt-1">
-                <Mail className="h-4 w-4" />
-                <span className="text-sm">{userEmail}</span>
+            {/* Details Grid */}
+            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-2 gap-x-6 text-sm text-muted-foreground mt-4'>
+              <div className='flex items-center gap-2'>
+                <Mail className='h-4 w-4 opacity-70' />
+                <span>{data.email}</span>
+                {data.isEmailVerified && (
+                  <CheckIcon className='h-3 w-3 text-green-500' />
+                )}
               </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Bio */}
-        {profile?.bio && (
-          <p className="text-muted-foreground mb-6">{profile.bio}</p>
-        )}
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="text-center p-4 bg-muted/50 rounded-lg">
-            <div className="text-2xl font-bold">{stats?.total_shipments || 0}</div>
-            <div className="text-sm text-muted-foreground">Shipments</div>
-          </div>
-          <div className="text-center p-4 bg-muted/50 rounded-lg">
-            <div className="text-2xl font-bold">{stats?.total_leads || 0}</div>
-            <div className="text-sm text-muted-foreground">Leads</div>
-          </div>
-          <div className="text-center p-4 bg-muted/50 rounded-lg">
-            <div className="flex flex-col items-center gap-1">
-              <div className="flex items-center gap-1 text-sm font-medium">
-                <Calendar className="h-4 w-4" />
-                <span>Member</span>
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {stats?.member_since
-                  ? formatDistanceToNow(new Date(stats.member_since), {
-                      addSuffix: true,
-                    })
-                  : 'N/A'}
-              </div>
+              {data.phone && (
+                <div className='flex items-center gap-2'>
+                  <Phone className='h-4 w-4 opacity-70' />
+                  <span>{data.phone}</span>
+                </div>
+              )}
+              {(data.city || data.country) && (
+                <div className='flex items-center gap-2'>
+                  <MapPin className='h-4 w-4 opacity-70' />
+                  <span>
+                    {[data.city, data.country].filter(Boolean).join(', ')}
+                  </span>
+                </div>
+              )}
+              {data.company && (
+                <div className='flex items-center gap-2'>
+                  <Building2 className='h-4 w-4 opacity-70' />
+                  <span>{data.company}</span>
+                </div>
+              )}
+              {data.joinedAt && (
+                <div className='flex items-center gap-2'>
+                  <Calendar className='h-4 w-4 opacity-70' />
+                  <span>
+                    Joined {new Date(data.joinedAt).toLocaleDateString()}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
-    </Card>
+    </div>
+  );
+}
+
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 24 24'
+      fill='none'
+      stroke='currentColor'
+      strokeWidth='2'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      className={className}>
+      <polyline points='20 6 9 17 4 12' />
+    </svg>
   );
 }

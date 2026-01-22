@@ -1,17 +1,16 @@
-"use client";
+/** @format */
 
-import * as React from "react";
+'use client';
+
+import * as React from 'react';
 import {
   ColumnDef,
   flexRender,
   getCoreRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  SortingState,
   useReactTable,
   RowSelectionState,
-} from "@tanstack/react-table";
-import { cn } from "@/lib/utils";
+  SortingState,
+} from '@tanstack/react-table';
 import {
   Table,
   TableBody,
@@ -19,13 +18,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { EmptyState } from "./empty-state";
-import { DataTablePagination } from "@/components/ui/data-table-pagination";
-import { TableLoadingBar } from "@/components/ui/table-loading-bar";
-import { motion, AnimatePresence } from "framer-motion";
+} from '@/components/ui/table';
+import { DataTableToolbar } from './data-table-toolbar';
+import { UserTableFilters, Role, Tenant } from '@/lib/types';
+import { Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { DataTablePagination } from '@/components/ui/data-table-pagination';
+import { EmptyState } from './empty-state';
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -33,13 +32,26 @@ interface DataTableProps<TData, TValue> {
   pageCount?: number;
   pageIndex?: number;
   pageSize?: number;
-  onPaginationChange?: (pagination: { pageIndex: number; pageSize: number }) => void;
+  onPaginationChange?: (pagination: {
+    pageIndex: number;
+    pageSize: number;
+  }) => void;
   onSortingChange?: (sorting: SortingState) => void;
   onRowSelectionChange?: (selection: RowSelectionState) => void;
   rowSelection?: RowSelectionState;
   isLoading?: boolean;
   meta?: any;
   onAddNew?: () => void;
+  // Toolbar Props
+  filters: UserTableFilters;
+  onFiltersChange: (filters: UserTableFilters) => void;
+  onRefresh: () => void;
+  onInvite?: () => void;
+  onBulkDelete?: () => void;
+  onBulkAssignRole?: () => void;
+  roles: Role[];
+  tenants: Tenant[];
+  isRefreshing?: boolean;
 }
 
 export function DataTable<TData, TValue>({
@@ -55,6 +67,15 @@ export function DataTable<TData, TValue>({
   isLoading = false,
   meta,
   onAddNew,
+  filters,
+  onFiltersChange,
+  onRefresh,
+  onInvite,
+  onBulkDelete,
+  onBulkAssignRole,
+  roles,
+  tenants,
+  isRefreshing,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
 
@@ -68,44 +89,68 @@ export function DataTable<TData, TValue>({
       rowSelection,
     },
     onSortingChange: (updater) => {
-      const newSorting = typeof updater === "function" ? updater(sorting) : updater;
+      const newSorting =
+        typeof updater === 'function' ? updater(sorting) : updater;
       setSorting(newSorting);
       onSortingChange?.(newSorting);
     },
     onPaginationChange: (updater) => {
       const currentPagination = { pageIndex, pageSize };
       const newPagination =
-        typeof updater === "function" ? updater(currentPagination) : updater;
+        typeof updater === 'function' ? updater(currentPagination) : updater;
       onPaginationChange?.(newPagination);
     },
     onRowSelectionChange: (updater) => {
-      const newSelection = typeof updater === "function" ? updater(rowSelection) : updater;
+      const newSelection =
+        typeof updater === 'function' ? updater(rowSelection) : updater;
       onRowSelectionChange?.(newSelection);
     },
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     manualPagination: true,
     manualSorting: true,
     meta,
   });
 
+  const selectedCount = Object.keys(rowSelection).length;
+
   return (
-    <div className="space-y-4">
-      <div className="rounded-md border overflow-hidden relative">
-        <TableLoadingBar isLoading={isLoading && data.length > 0} />
+    <div className='space-y-4'>
+      <DataTableToolbar
+        filters={filters}
+        onFiltersChange={onFiltersChange}
+        selectedCount={selectedCount}
+        onBulkDelete={onBulkDelete}
+        onBulkAssignRole={onBulkAssignRole}
+        roles={roles}
+        tenants={tenants}
+        onRefresh={onRefresh}
+        onInvite={onInvite}
+        onAddNew={onAddNew || (() => {})}
+        isRefreshing={isRefreshing}
+      />
+
+      <div className='rounded-md border overflow-hidden relative'>
+        {isLoading && data.length > 0 && (
+          <div className='absolute inset-0 z-10 bg-background/50 flex items-center justify-center backdrop-blur-[1px]'>
+            <Loader2 className='h-8 w-8 animate-spin text-primary' />
+          </div>
+        )}
         <Table>
-          <TableHeader>
+          <TableHeader className='bg-muted/50'>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow
+                key={headerGroup.id}
+                className='hover:bg-transparent border-b border-border'>
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id}>
+                    <TableHead
+                      key={header.id}
+                      className='font-bold text-foreground'>
                       {header.isPlaceholder
                         ? null
                         : flexRender(
                             header.column.columnDef.header,
-                            header.getContext()
+                            header.getContext(),
                           )}
                     </TableHead>
                   );
@@ -113,70 +158,53 @@ export function DataTable<TData, TValue>({
               </TableRow>
             ))}
           </TableHeader>
-          <TableBody className="relative">
+          <TableBody>
             {isLoading && data.length === 0 ? (
-              // Skeleton rows for initial load
-              Array.from({ length: pageSize }).map((_, i) => (
+              // Simple Loading Skeletons for initial load
+              Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
                   {columns.map((_, colIndex) => (
                     <TableCell key={colIndex}>
-                      <div className="h-4 bg-muted rounded animate-pulse w-full max-w-[200px]" />
+                      <div className='h-4 bg-muted rounded w-24 animate-pulse' />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  data-state={row.getIsSelected() && 'selected'}
+                  className={cn(
+                    isLoading &&
+                      'opacity-50 pointer-events-none transition-opacity duration-200',
+                  )}>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
                     </TableCell>
                   ))}
                 </TableRow>
               ))
             ) : (
-              <AnimatePresence mode="popLayout" initial={false}>
-                {table.getRowModel().rows?.length ? (
-                  table.getRowModel().rows.map((row, index) => (
-                    <motion.tr
-                      key={row.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{ 
-                        duration: 0.2, 
-                        delay: Math.min(index * 0.03, 0.3),
-                        ease: "easeOut"
-                      }}
-                      data-state={row.getIsSelected() && "selected"}
-                      className={cn(
-                        "group border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted",
-                        isLoading ? "opacity-50 pointer-events-none" : ""
-                      )}
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )}
-                        </TableCell>
-                      ))}
-                    </motion.tr>
-                  ))
-                ) : (
-                  <motion.tr
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                  >
-                    <TableCell
-                      colSpan={columns.length}
-                      className="p-0"
-                    >
-                      <EmptyState onAddUser={onAddNew} />
-                    </TableCell>
-                  </motion.tr>
-                )
-                }
-              </AnimatePresence>
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className='h-24 text-center'>
+                  <EmptyState onAddUser={onAddNew} />
+                </TableCell>
+              </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
 
-      <DataTablePagination table={table} />
+      <div className='pt-2'>
+        <DataTablePagination table={table} />
+      </div>
     </div>
   );
 }

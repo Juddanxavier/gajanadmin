@@ -12,21 +12,24 @@ import {
 } from 'react';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DataTable } from '@/components/users/data-table'; // Reuse generic DataTable
+import { DataTable } from '@/components/leads/data-table';
 import { columns } from '@/components/leads/columns';
 import { DataTableToolbar } from '@/components/leads/data-table-toolbar';
+
 import { getLeads, updateLeadStatus } from '@/app/(dashboard)/leads/actions';
-import { Lead, LeadTableFilters, LeadStatus } from '@/lib/types';
+import { getTenants } from '@/app/(dashboard)/users/actions'; // Reuse existing action
+import { Lead, LeadTableFilters, LeadStatus, Tenant } from '@/lib/types';
 import { RowSelectionState, SortingState } from '@tanstack/react-table';
 import { toast } from 'sonner';
 
 function LeadsPageContent() {
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
   const [optimisticLeads, setOptimisticLeads] = useOptimistic(
     leads,
     (state, updatedLead: Lead) => {
       return state.map((l) => (l.id === updatedLead.id ? updatedLead : l));
-    }
+    },
   );
 
   const [isLoading, setIsLoading] = useState(true);
@@ -38,6 +41,17 @@ function LeadsPageContent() {
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
   const [isPending, startTransition] = React.useTransition();
+
+  // Load tenants on mount
+  useEffect(() => {
+    getTenants()
+      .then((res) => setTenants(res || []))
+      .catch((err) => {
+        console.error('Failed to load tenants:', err);
+        // Don't crash, just show empty tenants
+        setTenants([]);
+      });
+  }, []);
 
   // Load leads when filters/page/sort changes
   useEffect(() => {
@@ -138,6 +152,7 @@ function LeadsPageContent() {
             onRowSelectionChange={setRowSelection}
             rowSelection={rowSelection}
             isLoading={isLoading || isPending}
+            tenants={tenants}
             meta={{
               onUpdateStatus: handleUpdateStatus,
             }}

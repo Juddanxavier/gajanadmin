@@ -17,9 +17,14 @@ import {
   ChevronRight,
   ShoppingBag,
   ChevronDown,
+  Activity,
+  Target,
+  Mail,
+  FileText,
+  List,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
+
 import {
   Tooltip,
   TooltipContent,
@@ -52,6 +57,7 @@ interface NavigationItem {
   children?: {
     title: string;
     href: string;
+    icon?: any;
   }[];
   badge?: boolean | string | number; // New: Badge support
 }
@@ -103,14 +109,17 @@ const sidebarGroups: SidebarGroup[] = [
           {
             title: 'Shipment Analytics',
             href: '/shipments/analytics', // Reusing shipment analytics as main overview for now, or we could redirect /analytics to here
+            icon: Activity,
           },
           {
             title: 'Leads',
             href: '/analytics/leads',
+            icon: Target,
           },
           {
             title: 'Users',
             href: '/analytics/users',
+            icon: Users,
           },
         ],
       },
@@ -128,18 +137,22 @@ const sidebarGroups: SidebarGroup[] = [
           {
             title: 'Overview',
             href: '/notifications',
+            icon: LayoutDashboard,
           },
           {
             title: 'Email Setup',
             href: '/notifications/email-setup',
+            icon: Mail,
           },
           {
             title: 'Logs',
             href: '/notifications/logs',
+            icon: FileText,
           },
           {
             title: 'Settings',
             href: '/notifications/settings',
+            icon: Settings,
           },
         ],
       },
@@ -198,7 +211,7 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     <aside
       className={cn(
         'fixed left-0 top-0 z-40 h-screen border-r border-border bg-card transition-all duration-300 flex flex-col',
-        isCollapsed ? 'w-16' : 'w-64'
+        isCollapsed ? 'w-16' : 'w-64',
       )}>
       <div className='flex h-16 items-center justify-between px-4 border-b border-border shrink-0'>
         {!isCollapsed && (
@@ -214,7 +227,7 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         )}
       </div>
 
-      <ScrollArea className='flex-1 px-3 py-2'>
+      <div className='flex-1 overflow-y-auto px-3 py-2 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-600 scrollbar-track-transparent'>
         <div className='space-y-4'>
           {sidebarGroups.map((group, groupIndex) => (
             <div key={groupIndex} className='space-y-1'>
@@ -243,7 +256,7 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                               'relative flex h-9 w-9 items-center justify-center rounded-md transition-colors',
                               isActive
                                 ? 'bg-primary text-primary-foreground font-medium shadow-md'
-                                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
                             )}>
                             <Icon className='h-4 w-4' />
                             {showBadge && (
@@ -273,13 +286,13 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                   // Expanded state
                   if (hasChildren) {
                     const isChildActive = item.children?.some(
-                      (child) => pathname === child.href
+                      (child) => pathname === child.href,
                     );
 
                     return (
                       <Collapsible
                         key={item.title}
-                        defaultOpen={isActive || isChildActive}
+                        defaultOpen={true}
                         className='group/collapsible'>
                         <CollapsibleTrigger asChild>
                           <div
@@ -287,7 +300,7 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                               'flex items-center w-full justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors cursor-pointer hover:bg-accent hover:text-accent-foreground',
                               isActive && !isChildActive
                                 ? 'text-foreground font-semibold'
-                                : 'text-muted-foreground'
+                                : 'text-muted-foreground',
                             )}>
                             <div className='flex items-center gap-3'>
                               <Icon className='h-4 w-4' />
@@ -314,11 +327,14 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                                   key={child.href}
                                   href={child.href}
                                   className={cn(
-                                    'block rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
                                     isChildItemActive
                                       ? 'bg-primary/10 text-primary border-r-2 border-primary rounded-r-none'
-                                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
                                   )}>
+                                  {child.icon && (
+                                    <child.icon className='h-4 w-4' />
+                                  )}
                                   {child.title}
                                 </Link>
                               );
@@ -337,7 +353,7 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                         'flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors',
                         isActive
                           ? 'bg-primary text-primary-foreground shadow-sm'
-                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
                       )}>
                       <div className='flex items-center gap-3'>
                         <Icon className='h-4 w-4' />
@@ -357,7 +373,7 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
             </div>
           ))}
         </div>
-      </ScrollArea>
+      </div>
 
       {/* User Footer */}
       <div className='border-t border-border p-3 space-y-2'>

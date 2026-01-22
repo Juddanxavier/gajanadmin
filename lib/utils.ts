@@ -1,5 +1,7 @@
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
+/** @format */
+
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -14,34 +16,40 @@ export const hasEnvVars =
  * Format a date string to a readable format
  */
 export function formatDate(date: string | Date | null | undefined): string {
-  if (!date) return "Never";
-  
-  const dateObj = typeof date === "string" ? new Date(date) : date;
-  
-  return new Intl.DateTimeFormat("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
+  if (!date) return 'Never';
+
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(dateObj.getTime())) return 'Invalid Date';
+
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   }).format(dateObj);
 }
 
 /**
  * Format a date to relative time (e.g., "2 hours ago")
  */
-export function formatRelativeTime(date: string | Date | null | undefined): string {
-  if (!date) return "Never";
-  
-  const dateObj = typeof date === "string" ? new Date(date) : date;
+export function formatRelativeTime(
+  date: string | Date | null | undefined,
+): string {
+  if (!date) return 'Never';
+
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
   const now = new Date();
   const diffInSeconds = Math.floor((now.getTime() - dateObj.getTime()) / 1000);
-  
-  if (diffInSeconds < 60) return "Just now";
-  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
-  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
-  if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} days ago`;
-  
+
+  if (diffInSeconds < 60) return 'Just now';
+  if (diffInSeconds < 3600)
+    return `${Math.floor(diffInSeconds / 60)} minutes ago`;
+  if (diffInSeconds < 86400)
+    return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+  if (diffInSeconds < 604800)
+    return `${Math.floor(diffInSeconds / 86400)} days ago`;
+
   return formatDate(dateObj);
 }
 
@@ -49,7 +57,7 @@ export function formatRelativeTime(date: string | Date | null | undefined): stri
  * Get initials from an email address
  */
 export function getInitials(email: string): string {
-  const parts = email.split("@")[0].split(".");
+  const parts = email.split('@')[0].split('.');
   if (parts.length >= 2) {
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }
@@ -61,15 +69,15 @@ export function getInitials(email: string): string {
  */
 export function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength) + "...";
+  return text.substring(0, maxLength) + '...';
 }
 /**
  * Format currency
  */
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(amount);
@@ -91,14 +99,14 @@ export function getUserGradient(userId: string): string {
     'linear-gradient(to right, #fbbf24, #f97316, #dc2626)',
     'linear-gradient(to right, #34d399, #14b8a6, #06b6d4)',
   ];
-  
+
   // Generate a consistent index from user ID
   let hash = 0;
   for (let i = 0; i < userId.length; i++) {
-    hash = ((hash << 5) - hash) + userId.charCodeAt(i);
+    hash = (hash << 5) - hash + userId.charCodeAt(i);
     hash = hash & hash; // Convert to 32bit integer
   }
-  
+
   const index = Math.abs(hash) % gradients.length;
   return gradients[index];
 }
@@ -108,8 +116,8 @@ export function getUserGradient(userId: string): string {
  */
 export function downloadCSV(data: any[], filename: string) {
   if (!data || data.length === 0) {
-      console.warn("No data to export");
-      return;
+    console.warn('No data to export');
+    return;
   }
 
   // extract headers
@@ -117,12 +125,12 @@ export function downloadCSV(data: any[], filename: string) {
   const csvRows = [headers.join(',')];
 
   for (const row of data) {
-      const values = headers.map(header => {
-          const val = row[header];
-          const escaped = ('' + (val || '')).replace(/"/g, '""');
-          return `"${escaped}"`;
-      });
-      csvRows.push(values.join(','));
+    const values = headers.map((header) => {
+      const val = row[header];
+      const escaped = ('' + (val || '')).replace(/"/g, '""');
+      return `"${escaped}"`;
+    });
+    csvRows.push(values.join(','));
   }
 
   const csvString = csvRows.join('\n');
@@ -135,4 +143,16 @@ export function downloadCSV(data: any[], filename: string) {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
+}
+
+/**
+ * Get country flag emoji from ISO code
+ */
+export function getCountryFlag(countryCode: string): string {
+  if (!countryCode) return '';
+  const codePoints = countryCode
+    .toUpperCase()
+    .split('')
+    .map((char) => 127397 + char.charCodeAt(0));
+  return String.fromCodePoint(...codePoints);
 }

@@ -1,6 +1,9 @@
+<!-- @format -->
+
 # Email Notifications - Quick Setup
 
 ## ✅ **Features**
+
 - Supports **ZeptoMail** and **SMTP**
 - QR codes for tracking
 - Invoice amounts
@@ -12,12 +15,15 @@
 ## 🚀 **Setup (3 Steps)**
 
 ### **1. Configure Database**
+
 Run in Supabase SQL Editor:
+
 ```sql
 ALTER DATABASE postgres SET app.nextjs_api_url = 'http://localhost:3000';
 ```
 
 ### **2. Apply Migration**
+
 Copy/paste this file into Supabase SQL Editor:
 `supabase/migrations/20251230_email_notifications.sql`
 
@@ -26,6 +32,7 @@ Copy/paste this file into Supabase SQL Editor:
 Go to **Admin → Notification Settings** and add:
 
 **For ZeptoMail:**
+
 - Channel: Email
 - Provider: ZeptoMail
 - API Key: Your ZeptoMail API key
@@ -36,6 +43,7 @@ Go to **Admin → Notification Settings** and add:
 - Active: ✅
 
 **For SMTP:**
+
 - Channel: Email
 - Provider: SMTP
 - Host: smtp.gmail.com (or your SMTP server)
@@ -46,7 +54,10 @@ Go to **Admin → Notification Settings** and add:
 - From Name: Your Company
 - Company Name: Your Company
 - Tracking URL: http://localhost:3000
-- Active: ✅
+- Active: ✅ 49a. **Email Templates (New):** 49b. Go to **Settings → Email
+  Templates** to customize: 49c. - Subject lines (with variables like
+  `{{tracking_number}}`) 49d. - Headings 49e. - Message body 49f. -
+  Enable/Disable specific notification types
 
 ---
 
