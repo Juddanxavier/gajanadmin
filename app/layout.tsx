@@ -1,26 +1,33 @@
-import type { Metadata } from "next";
-import { Geist } from "next/font/google";
-import { ThemeProvider } from "next-themes";
-import "./globals.css";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
+/** @format */
 
-
+import type { Metadata } from 'next';
+import { Geist } from 'next/font/google';
+import { ThemeProvider } from 'next-themes';
+import './globals.css';
+import { Toaster } from '@/components/ui/toaster';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 const defaultUrl = process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
-  : "http://localhost:3000";
+  : 'http://localhost:3000';
 
 export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
-  title: "Next.js and Supabase Starter Kit",
-  description: "The fastest way to build apps with Next.js and Supabase",
+  title: {
+    default: 'Gajan Admin',
+    template: '%s | Gajan Admin',
+  },
+  description: 'Internal Shipment Management Portal',
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 const geistSans = Geist({
-  variable: "--font-geist-sans",
-  display: "swap",
-  subsets: ["latin"],
+  variable: '--font-geist-sans',
+  display: 'swap',
+  subsets: ['latin'],
 });
 
 export default function RootLayout({
@@ -29,14 +36,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang='en' suppressHydrationWarning>
       <body className={`${geistSans.className} antialiased`}>
         <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
+          attribute='class'
+          defaultTheme='dark'
           enableSystem
-          disableTransitionOnChange
-        >
+          disableTransitionOnChange>
           <TooltipProvider>
             {children}
             <Toaster />

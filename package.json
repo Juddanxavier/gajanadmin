@@ -5,7 +5,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "email": "email dev"
+    "email": "email dev",
+    "sync:shipments": "npx tsx scripts/sync-pending-shipments.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

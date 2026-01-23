@@ -1,10 +1,17 @@
+/** @format */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { EmailService } from '@/lib/services/email-notification-service';
+import { NotificationService } from '@/lib/services/notification-service';
 import { z } from 'zod';
 
 // Only send emails for these critical statuses
-const NOTIFIABLE_STATUSES = ['delivered', 'info_received', 'exception'] as const;
+const NOTIFIABLE_STATUSES = [
+  'delivered',
+  'info_received',
+  'exception',
+] as const;
 
 // Request validation schema
 const NotificationRequestSchema = z.object({
@@ -25,11 +32,22 @@ type NotificationRequest = z.infer<typeof NotificationRequestSchema>;
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-  
-  try {
-    console.log('📧 Email notification API called');
 
-    // Parse and validate request
+  try {
+    console.log('📧 Internal Notification Webhook Triggered');
+
+    // 1. Security Check
+    const authHeader = request.headers.get('Authorization');
+    // Using NOTIFICATION_WEBHOOK_SECRET as CRON_SECRET is placeholder
+    if (authHeader !== `Bearer ${process.env.NOTIFICATION_WEBHOOK_SECRET}`) {
+      console.warn('⚠️ Unauthorized webhook attempt');
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 },
+      );
+    }
+
+    // 2. Parse and validate request
     const body = await request.json();
     const validatedData = NotificationRequestSchema.parse(body);
 
@@ -37,7 +55,9 @@ export async function POST(request: NextRequest) {
 
     // Filter: Only send emails for critical statuses
     if (!NOTIFIABLE_STATUSES.includes(new_status as any)) {
-      console.log(`⏭️  Skipping email for status: ${new_status} (not in notifiable list)`);
+      console.log(
+        `⏭️  Skipping email for status: ${new_status} (not in notifiable list)`,
+      );
       return NextResponse.json({
         success: true,
         message: `Status ${new_status} is not notifiable`,
@@ -50,23 +70,23 @@ export async function POST(request: NextRequest) {
       console.error('❌ No customer email provided');
       return NextResponse.json(
         { success: false, error: 'Customer email is required' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Get Supabase client
     const supabase = await createClient();
 
-    // Create email service
-    const emailService = new EmailService(supabase);
+    // Create notification service (orchestrator)
+    const notificationService = new NotificationService(supabase);
 
-    // Send email
-    const result = await emailService.sendShipmentNotification({
+    // Send notifications
+    const results = await notificationService.sendNotifications({
       shipmentId: validatedData.shipment_id,
       tenantId: validatedData.tenant_id,
       status: new_status,
       recipientEmail: customer_email,
-      recipientName: customer_name || 'Customer',
+      recipientName: customer_name,
       trackingCode: validatedData.tracking_code,
       referenceCode: validatedData.reference_code,
       invoiceAmount: validatedData.invoice_amount,
@@ -75,18 +95,20 @@ export async function POST(request: NextRequest) {
     });
 
     const duration = Date.now() - startTime;
-    console.log(`✅ Email notification completed in ${duration}ms`);
+    console.log(`✅ Notification webhook processed in ${duration}ms`, results);
+
+    // Determine overall success (if at least one channel worked or all skipped)
+    const emailSuccess = results.email?.success || results.email?.skipped;
+    // const whatsappSuccess = results.whatsapp?.success || results.whatsapp?.skipped;
 
     return NextResponse.json({
-      success: result.success,
-      message: result.message,
-      logId: result.logId,
+      success: emailSuccess,
+      results,
       duration,
     });
-
   } catch (error) {
     const duration = Date.now() - startTime;
-    console.error('❌ Email notification failed:', error);
+    console.error('❌ Notification webhook failed:', error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -95,7 +117,7 @@ export async function POST(request: NextRequest) {
           error: 'Invalid request data',
           details: (error as any).errors,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -105,17 +127,12 @@ export async function POST(request: NextRequest) {
         error: error instanceof Error ? error.message : 'Unknown error',
         duration,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 // Health check endpoint
 export async function GET() {
-  return NextResponse.json({
-    status: 'healthy',
-    service: 'email-notifications',
-    notifiable_statuses: NOTIFIABLE_STATUSES,
-    timestamp: new Date().toISOString(),
-  });
+  return NextResponse.json({ status: 'active', type: 'internal-webhook' });
 }
