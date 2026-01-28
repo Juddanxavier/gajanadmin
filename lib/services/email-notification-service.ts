@@ -69,11 +69,11 @@ export class EmailService {
       const isDuplicate = await this.checkDuplicate(
         shipmentId,
         tenantId,
-        status
+        status,
       );
       if (isDuplicate) {
         console.log(
-          `✅ Email already sent for shipment ${shipmentId} status ${status}`
+          `✅ Email already sent for shipment ${shipmentId} status ${status}`,
         );
         return { success: true, message: 'Already sent (duplicate prevented)' };
       }
@@ -119,14 +119,14 @@ export class EmailService {
       const customHeading = emailConfig.template?.heading_template
         ? this.replaceVariables(
             emailConfig.template.heading_template,
-            templateVars
+            templateVars,
           )
         : undefined;
 
       const customMessage = emailConfig.template?.body_template
         ? this.replaceVariables(
             emailConfig.template.body_template,
-            templateVars
+            templateVars,
           )
         : undefined;
 
@@ -151,7 +151,7 @@ export class EmailService {
           customHeading,
           customMessage,
           deliveryDate: params.deliveryDate,
-        })
+        }),
       );
 
       const isDryRun = process.env.EMAIL_DRY_RUN === 'true';
@@ -170,7 +170,7 @@ export class EmailService {
           'Invoice:',
           params.invoiceAmount
             ? `${params.invoiceCurrency} ${params.invoiceAmount}`
-            : 'N/A'
+            : 'N/A',
         );
         console.log('HTML Length:', emailHtml.length, 'characters');
         console.log('QR Code:', qrCodeDataUrl ? 'Generated ✅' : 'N/A');
@@ -183,7 +183,8 @@ export class EmailService {
             recipientEmail,
             recipientName,
             subject,
-            emailHtml
+            emailHtml,
+            params.referenceCode // Pass reference code
           );
         } else if (emailConfig.provider_id === 'smtp') {
           await this.sendViaSMTP(
@@ -191,7 +192,7 @@ export class EmailService {
             recipientEmail,
             recipientName,
             subject,
-            emailHtml
+            emailHtml,
           );
         }
       }
@@ -206,10 +207,46 @@ export class EmailService {
 
       console.log(`✅ Email sent successfully to ${recipientEmail}`);
       return { success: true, message: 'Email sent', logId };
+      }
     } catch (error) {
       console.error('❌ Email sending failed:', error);
+      
+      // FALLBACK LOGIC: If ZeptoMail failed, try SMTP
+      if (emailConfig.provider_id === 'zeptomail') {
+          console.log('🔄 Attempting fallback to SMTP...');
+          const smtpConfig = await this.getFallbackSMTPConfig(tenantId, status);
+          if (smtpConfig) {
+             // Merge with original config for shared properties like logo/templates if they were missing or just use smtpConfig fully
+             // Actually, we need to preserve templates/logos from original logic or re-fetch properly.
+             // getFallbackSMTPConfig handles fetching.
+             try {
+                await this.sendViaSMTP(
+                    smtpConfig,
+                    recipientEmail,
+                    recipientName,
+                    subject,
+                    emailHtml
+                );
+                console.log(`✅ Fallback Email sent successfully to ${recipientEmail}`);
+                
+                 // Log success (fallback)
+                const logId = await this.logAttempt({
+                    ...params,
+                    status: 'sent',
+                    subject,
+                    body: emailHtml,
+                    errorMessage: `ZeptoMail failed, used SMTP fallback. Original error: ${error instanceof Error ? error.message : 'Unknown'}`
+                });
+                return { success: true, message: 'Email sent (via Fallback)', logId };
+             } catch (fallbackError) {
+                 console.error('❌ Fallback SMTP also failed:', fallbackError);
+             }
+          } else {
+              console.warn('⚠️ No SMTP fallback configuration found.');
+          }
+      }
 
-      // Log failure
+      // Log failure (final)
       await this.logAttempt({
         ...params,
         status: 'failed',
@@ -231,7 +268,7 @@ export class EmailService {
   private async checkDuplicate(
     shipmentId: string,
     tenantId: string,
-    status: string
+    status: string,
   ): Promise<boolean> {
     // We look for a log entry for this shipment + status match
     // Note: Ideally we'd store the 'trigger' or 'status' in metadata for more robust checking
@@ -251,7 +288,7 @@ export class EmailService {
       // Limitation: This might be loose without a dedicated 'trigger_event' column.
       .gt(
         'created_at',
-        new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+        new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
       ) // sent in last 24h
       .limit(1);
 
@@ -284,7 +321,7 @@ export class EmailService {
    */
   private async getTenantEmailConfig(
     tenantId: string,
-    status: string
+    status: string,
   ): Promise<EmailConfig | null> {
     // 1. Fetch Notification Config
     const configPromise = this.supabase
@@ -346,6 +383,66 @@ export class EmailService {
   }
 
   /**
+   * Get fallback SMTP configuration (even if inactive)
+   */
+  private async getFallbackSMTPConfig(
+    tenantId: string,
+    status: string,
+  ): Promise<EmailConfig | null> {
+    // 1. Fetch SMTP Config (ignore is_active, strictly look for provider_id='smtp')
+    const configPromise = this.supabase
+      .from('tenant_notification_configs')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('channel', 'email')
+      .eq('provider_id', 'smtp')
+      .limit(1)
+      .maybeSingle(); // Use maybeSingle to avoid error if multiple/none
+
+    // 2. Fetch Company Settings & Template (Re-use logic or call getTenantEmailConfig?)
+    // We duplicate strictly necessary logic to ensure clean fallback config
+    const settingsPromise = this.supabase
+      .from('settings')
+      .select('company_logo_url')
+      .eq('tenant_id', tenantId)
+      .single();
+
+    let templateType = 'shipment_status';
+    if (status === 'delivered') templateType = 'shipment_delivered';
+    if (status === 'exception' || status === 'failed') templateType = 'shipment_exception';
+
+    const templatePromise = this.supabase
+      .from('email_templates')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('type', templateType)
+      .eq('is_active', true)
+      .single();
+
+    const [configResult, settingsResult, templateResult] = await Promise.all([
+      configPromise,
+      settingsPromise,
+      templatePromise,
+    ]);
+
+    if (configResult.error || !configResult.data) {
+      return null;
+    }
+
+    const config = configResult.data as EmailConfig;
+
+    if (settingsResult.data?.company_logo_url) {
+      config.logo_url = settingsResult.data.company_logo_url;
+    }
+
+    if (templateResult.data) {
+      config.template = templateResult.data as EmailTemplate;
+    }
+
+    return config;
+  }
+
+  /**
    * Generate QR code for tracking URL
    */
   private async generateQRCode(url: string): Promise<string> {
@@ -367,7 +464,8 @@ export class EmailService {
     toEmail: string,
     toName: string,
     subject: string,
-    html: string
+    html: string,
+    clientReference?: string,
   ): Promise<void> {
     const response = await fetch('https://api.zeptomail.com/v1.1/email', {
       method: 'POST',
@@ -390,6 +488,9 @@ export class EmailService {
         ],
         subject,
         htmlbody: html,
+        track_clicks: true,
+        track_opens: true,
+        client_reference: clientReference,
       }),
     });
 
@@ -407,7 +508,7 @@ export class EmailService {
     toEmail: string,
     toName: string,
     subject: string,
-    html: string
+    html: string,
   ): Promise<void> {
     const transporter = nodemailer.createTransport({
       host: config.credentials.host!,
@@ -436,7 +537,7 @@ export class EmailService {
       subject?: string;
       body?: string;
       errorMessage?: string;
-    }
+    },
   ): Promise<string | undefined> {
     const { data, error } = await this.supabase
       .from('notification_logs')
@@ -467,7 +568,7 @@ export class EmailService {
    */
   private replaceVariables(
     template: string,
-    vars: Record<string, string | number | undefined>
+    vars: Record<string, string | number | undefined>,
   ): string {
     return template.replace(/\{\{(\w+)\}\}/g, (_, key) => {
       return vars[key] !== undefined ? String(vars[key]) : `{{${key}}}`;

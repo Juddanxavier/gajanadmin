@@ -48,7 +48,7 @@ import {
 import {
   getSettings,
   updateSettings,
-  testSMTPConnection,
+  testNotificationConnection,
   testWebhook,
   getAllTenants,
   getNotificationConfig,
@@ -67,6 +67,7 @@ export default function SettingsPage() {
   const [showSmtpPassword, setShowSmtpPassword] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
   const [useMockData, setUseMockData] = useState(false);
+  const [isAdminUser, setIsAdminUser] = useState(false);
 
   // Tenant switching for Admins
   const [tenants, setTenants] = useState<any[]>([]);
@@ -91,11 +92,16 @@ export default function SettingsPage() {
 
   const checkAdminAndFetchTenants = async () => {
     const result = await getAllTenants();
-    if (result.success && result.data && result.data.length > 0) {
-      setTenants(result.data);
-      if (!selectedTenantId) {
-        setSelectedTenantId(result.data[0].id);
+    if (result.success) {
+      setIsAdminUser(true);
+      if (result.data && result.data.length > 0) {
+        setTenants(result.data);
+        if (!selectedTenantId) {
+          setSelectedTenantId(result.data[0].id);
+        }
       }
+    } else {
+      setIsAdminUser(false);
     }
   };
 
@@ -150,13 +156,11 @@ export default function SettingsPage() {
     setIsSaving(false);
   };
 
-  const handleTestSMTP = async () => {
-    const result = await testSMTPConnection({
-      smtp_host: settings.smtp_host,
-      smtp_port: settings.smtp_port,
-      smtp_username: settings.smtp_username,
-      smtp_password: settings.smtp_password,
-      smtp_from_email: settings.smtp_from_email,
+  const handleTestConnection = async () => {
+    const result = await testNotificationConnection({
+      provider_id: notifSettings.provider_id,
+      credentials: notifSettings.credentials,
+      from_email: notifSettings.config?.from_email,
     });
 
     if (result.success) {
@@ -241,10 +245,12 @@ export default function SettingsPage() {
             <Building2 className='h-4 w-4' />
             <span className='hidden sm:inline'>General</span>
           </TabsTrigger>
-          <TabsTrigger value='notifications' className='gap-2'>
-            <Bell className='h-4 w-4' />
-            <span className='hidden sm:inline'>Notifications</span>
-          </TabsTrigger>
+          {isAdminUser && (
+            <TabsTrigger value='notifications' className='gap-2'>
+              <Bell className='h-4 w-4' />
+              <span className='hidden sm:inline'>Notifications</span>
+            </TabsTrigger>
+          )}
           <TabsTrigger value='tracking' className='gap-2'>
             <Truck className='h-4 w-4' />
             <span className='hidden sm:inline'>Tracking</span>
@@ -592,7 +598,7 @@ export default function SettingsPage() {
 
                 <div className='col-span-2'>
                   <Button
-                    onClick={handleTestSMTP}
+                    onClick={handleTestConnection}
                     variant='outline'
                     className='w-full sm:w-auto'>
                     <TestTube className='mr-2 h-4 w-4' />

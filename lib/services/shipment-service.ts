@@ -54,10 +54,24 @@ export class ShipmentService {
     params: CreateShipmentParams & {
       userId?: string;
       invoiceDetails?: any;
+      userId?: string;
+      invoiceDetails?: any;
       provider?: string;
+      isArchived?: boolean;
     },
   ) {
     const providerName = params.provider || 'track123';
+    const isArchived = params.isArchived || false;
+
+    // Helper to generate White Label ID
+    const generateWhiteLabelId = (countryCode?: string) => {
+      const prefix = countryCode === 'LK' ? 'GTES' : 'GTEI'; // Default to GTEI (India)
+      // Generate 8 random digits
+      const randomDigits = Math.floor(
+        10000000 + Math.random() * 90000000,
+      ).toString();
+      return `${prefix}${randomDigits}`;
+    };
 
     // 1. Check for existing shipment (including soft-deleted)
     const { data: existing } = await this.client
@@ -104,15 +118,41 @@ export class ShipmentService {
     }
 
     const provider = await this.getProvider(providerName, params.tenantId);
-    const trackingResult = await provider.createTracker(params);
+
+    let trackingResult: TrackingResult;
+
+    if (isArchived) {
+      // Historical Data - Bypass external API
+      trackingResult = {
+        tracking_number: params.tracking_number,
+        carrier_code: params.carrier_code || 'manual',
+        status: 'delivered', // Assume delivered for historical
+        checkpoints: [],
+        latest_location: 'Historical Data Entry',
+        estimated_delivery: null,
+        raw_response: { note: 'Historical Import' },
+      };
+    } else {
+      // Normal Flow - Create tracker in external system
+      trackingResult = await provider.createTracker(params);
+    }
+
+    if (trackingResult.carrier_code) {
+      await this.ensureCarrierExists(trackingResult.carrier_code);
+    }
+
+    if (params.carrier_code) {
+      await this.ensureCarrierExists(params.carrier_code);
+    }
 
     const { data: shipment, error } = await this.client
       .from('shipments')
       .insert({
-        white_label_code: params.whiteLabelCode || `TRK-${Date.now()}`,
+        white_label_code:
+          params.whiteLabelCode ||
+          generateWhiteLabelId(trackingResult.origin_country || 'IN'),
         carrier_tracking_code: params.tracking_number,
-        carrier_id:
-          trackingResult.carrier_code || params.carrier_code || 'unknown',
+        carrier_id: trackingResult.carrier_code || params.carrier_code || null,
         provider: providerName,
         status: trackingResult.status,
         estimated_delivery: trackingResult.estimated_delivery,
@@ -139,26 +179,7 @@ export class ShipmentService {
       await this.saveEvents(shipment.id, trackingResult.checkpoints);
     }
 
-    // Trigger Initial Notification
-    if (shipment) {
-      try {
-        const { NotificationService } =
-          await import('@/lib/notifications/service');
-        const notifier = new NotificationService();
-        await notifier.notifyStatusChange({
-          shipmentId: shipment.id,
-          trackingCode: shipment.carrier_tracking_code,
-          status: shipment.status,
-          oldStatus: undefined, // New shipment
-          customerName: shipment.customer_details?.name,
-          customerEmail: shipment.customer_details?.email,
-          customerPhone: shipment.customer_details?.phone,
-          location: shipment.latest_location,
-        });
-      } catch (e) {
-        console.error('Failed to trigger initial notification:', e);
-      }
-    }
+    // Notification trigger removed
 
     return shipment;
   }
@@ -535,6 +556,33 @@ export class ShipmentService {
     return 'pending'; // Default
   }
 
+  private async ensureCarrierExists(code: string) {
+    if (!code || code === 'unknown') return;
+
+    const { data } = await this.client
+      .from('carriers')
+      .select('code')
+      .eq('code', code)
+      .single();
+
+    if (data) return;
+
+    console.log(`[ShipmentService] Auto-creating missing carrier: ${code}`);
+    // Try to create it with a placeholder name
+    const { error } = await this.client.from('carriers').insert({
+      code: code,
+      name_en: code.toUpperCase(), // Placeholder - could be updated later via sync
+      name_cn: code.toUpperCase(),
+    });
+
+    if (error) {
+      console.warn(
+        `[ShipmentService] Failed to auto-create carrier ${code}:`,
+        error.message,
+      );
+    }
+  }
+
   // Private helpers
   private async updateShipmentFromTrackingResult(
     shipmentId: string,
@@ -547,6 +595,10 @@ export class ShipmentService {
       .single();
 
     if (!existing) throw new Error('Shipment not found');
+
+    if (result.carrier_code) {
+      await this.ensureCarrierExists(result.carrier_code);
+    }
 
     const updatePayload: any = {
       status: result.status,
@@ -568,23 +620,7 @@ export class ShipmentService {
 
     await this.saveEvents(shipmentId, result.checkpoints);
 
-    // Notifications
-    if (existing.status !== result.status) {
-      // Dynamic import to break circular dependency
-      const { NotificationService } =
-        await import('@/lib/notifications/service');
-      const notifier = new NotificationService();
-      await notifier.notifyStatusChange({
-        shipmentId: existing.id,
-        trackingCode: existing.carrier_tracking_code,
-        status: result.status,
-        oldStatus: existing.status,
-        customerName: existing.customer_details?.name,
-        customerEmail: existing.customer_details?.email,
-        customerPhone: existing.customer_details?.phone,
-        location: result.latest_location || existing.latest_location,
-      });
-    }
+    // Notification trigger removed
   }
 
   private async saveEvents(shipmentId: string, checkpoints: any[]) {

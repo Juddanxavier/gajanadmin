@@ -14,7 +14,13 @@ export function CountryFlag({
   className,
   ...props
 }: CountryFlagProps) {
-  const code = countryCode ? countryCode.toUpperCase() : '';
+  // Handle common aliases
+  let code = countryCode ? countryCode.toUpperCase() : '';
+  if (code === 'UK') code = 'GB';
+  if (code === 'DUBAI') code = 'AE';
+  if (code === 'NETHER') code = 'NL';
+  if (code === 'NEWZEALAND') code = 'NZ';
+  if (code === 'PHILIPINES') code = 'PH';
   // @ts-ignore - Flags match country codes but TS might complain about indexing
   const FlagComponent = Flags[code];
 

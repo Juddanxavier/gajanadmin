@@ -1,131 +1,74 @@
 /** @format */
 
-'use client';
-
-import { useEffect, useState, Suspense } from 'react';
+import { Suspense } from 'react';
 import { ShipmentStatsCards } from '@/components/shipments/shipment-stats';
-import { ShipmentDataTable } from '@/components/shipments/data-table';
-import { columns, ShipmentDisplay } from '@/components/shipments/columns';
-import { CreateShipmentDialog } from '@/components/shipments/create-shipment-dialog';
+import { ShipmentTableClient } from '@/components/shipments/shipment-table-client';
 import {
   getShipments,
   getShipmentStats,
-  bulkDeleteShipmentsAction,
 } from '@/app/(dashboard)/shipments/actions';
 import { getTenants } from '@/app/(dashboard)/users/actions';
-import { toast } from 'sonner';
-import { SortingState, PaginationState } from '@tanstack/react-table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useShipmentRealtime } from '@/components/shipments/use-shipment-realtime';
-import { Tenant, ShipmentTableFilters } from '@/lib/types';
+import { CreateShipmentDialogWrapper } from '@/components/shipments/create-shipment-wrapper';
+import { ShipmentTabs } from '@/components/shipments/shipment-tabs';
+import Link from 'next/link';
+import { Card, CardContent } from '@/components/ui/card';
 
-interface ShipmentStats {
-  total: number;
-  pending: number;
-  in_transit: number;
-  delivered: number;
-  exception: number;
+export const dynamic = 'force-dynamic';
+
+interface PageProps {
+  searchParams: {
+    page?: string;
+    limit?: string;
+    status?: string;
+    sort?: string;
+    tenant?: string;
+    search?: string;
+  };
 }
 
-function ShipmentsContent() {
-  const [stats, setStats] = useState<ShipmentStats | null>(null);
-  const [data, setData] = useState<ShipmentDisplay[]>([]);
-  const [pageCount, setPageCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export default async function ShipmentsPage({ searchParams }: PageProps) {
+  // Parse Params
+  const page = Number(searchParams.page) || 1;
+  const pageSize = Number(searchParams.limit) || 10;
+  const status =
+    searchParams.status === 'all' ? undefined : searchParams.status;
+  const search = searchParams.search;
 
-  // Table State
-  const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: 0,
-    pageSize: 10,
-  });
-  const [sorting, setSorting] = useState<SortingState>([]);
-  // Filters State
-  const [filters, setFilters] = useState<ShipmentTableFilters>({});
-  const [tenants, setTenants] = useState<Tenant[]>([]);
+  // sort format: "field.dir" (e.g. "created_at.desc")
+  let sortBy = undefined;
+  if (searchParams.sort) {
+    const [field, dir] = searchParams.sort.split('.');
+    sortBy = { id: field, desc: dir === 'desc' };
+  }
 
-  // Dialog State
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  // Parallel Data Fetching
+  const [tenantsResult] = await Promise.all([getTenants()]);
+  const tenants = Array.isArray(tenantsResult) ? tenantsResult : [];
 
-  const loadData = async () => {
-    // Optimistic UI: Only show loading on initial load
-    const isInitialLoad = data.length === 0;
-    if (isInitialLoad) {
-      setIsLoading(true);
+  // Default to India if no tenant selected
+  let tenant = searchParams.tenant;
+  if (!tenant) {
+    const indiaTenant = tenants.find(
+      (t) => t.code === 'IN' || t.name.toLowerCase().includes('india'),
+    );
+    if (indiaTenant) {
+      tenant = indiaTenant.id;
     }
+  }
 
-    try {
-      // Parallel fetch stats, table data, and tenants
-      const [statsResult, dataResult, tenantsResult] = await Promise.all([
-        getShipmentStats(),
-        getShipments(
-          pagination.pageIndex + 1,
-          pagination.pageSize,
-          filters,
-          sorting.length > 0
-            ? { id: sorting[0].id, desc: sorting[0].desc }
-            : undefined,
-        ),
-        getTenants(), // Fetch tenants for the filter
-      ]);
+  // Fetch Data with resolved tenant
+  const [statsResult, dataResult] = await Promise.all([
+    getShipmentStats(tenant),
+    getShipments({
+      page,
+      pageSize,
+      filters: { status, tenant, search },
+      sortBy,
+    }),
+  ]);
 
-      if (statsResult.success && statsResult.data) {
-        setStats(statsResult.data);
-      }
-
-      if (dataResult.success && dataResult.data) {
-        setData(dataResult.data.data as ShipmentDisplay[]);
-        setPageCount(dataResult.data.pageCount);
-      }
-
-      // Handle tenants result (it returns array directly, not ActionResponse, based on viewed code)
-      // Wait, let's verify getTenants return type.
-      // viewed code: export async function getTenants() { return getAvailableTenants(); }
-      // getAvailableTenants returns array or [].
-      if (Array.isArray(tenantsResult)) {
-        setTenants(tenantsResult as Tenant[]);
-      }
-    } catch (error: any) {
-      console.error('Failed to load shipments:', error);
-      setError(error.message || 'Failed to load data');
-    } finally {
-      if (isInitialLoad) {
-        setIsLoading(false);
-      }
-    }
-  };
-
-  // Realtime Updates
-  useShipmentRealtime(loadData);
-
-  useEffect(() => {
-    loadData();
-  }, [pagination.pageIndex, pagination.pageSize, sorting, filters]);
-
-  const handleRefresh = () => {
-    loadData();
-  };
-
-  const handleBulkDelete = async (ids: string[]) => {
-    if (!confirm(`Are you sure you want to delete ${ids.length} shipments?`))
-      return;
-
-    const result = await bulkDeleteShipmentsAction(ids);
-    if (result.success) {
-      toast.success('Shipments deleted successfully');
-      loadData();
-    } else {
-      toast.error('Failed to delete shipments: ' + result.error);
-    }
-  };
-
-  const onTabChange = (value: string) => {
-    setFilters((prev) => ({
-      ...prev,
-      status: value === 'all' ? undefined : value,
-    }));
-    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-  };
+  const stats = statsResult.data;
+  const shipmentsData = dataResult.data;
 
   return (
     <div className='space-y-6'>
@@ -138,104 +81,51 @@ function ShipmentsContent() {
             Track and manage shipments across all providers.
           </p>
         </div>
+        <CreateShipmentDialogWrapper />
       </div>
-
-      {error && (
-        <div className='bg-destructive/15 text-destructive p-4 rounded-md border border-destructive/20'>
-          Error loading shipments: {error}
-        </div>
-      )}
-
-      {/* Stats Cards - Show skeleton while loading */}
-      {isLoading && !stats ? (
-        <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-5'>
-          {[...Array(5)].map((_, i) => (
-            <div
-              key={i}
-              className='rounded-lg border bg-card p-6 animate-pulse'>
-              <div className='h-4 bg-muted rounded w-20 mb-2'></div>
-              <div className='h-8 bg-muted rounded w-16'></div>
-            </div>
-          ))}
-        </div>
-      ) : stats ? (
-        <ShipmentStatsCards stats={stats} />
-      ) : null}
-
-      <Tabs
-        defaultValue='all'
-        className='space-y-4'
-        onValueChange={onTabChange}>
-        <TabsList>
-          <TabsTrigger value='all'>All</TabsTrigger>
-          <TabsTrigger value='pending'>Pending</TabsTrigger>
-          <TabsTrigger value='in_transit'>In Transit</TabsTrigger>
-          <TabsTrigger value='delivered'>Delivered</TabsTrigger>
-          <TabsTrigger value='exception'>Exception</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value='all' className='space-y-4'>
-          {/* All Tab */}
-          <ShipmentDataTable
-            columns={columns}
-            data={data}
-            pageCount={pageCount}
-            pageIndex={pagination.pageIndex}
-            pageSize={pagination.pageSize}
-            onPaginationChange={setPagination}
-            onSortingChange={setSorting}
-            sorting={sorting}
-            isLoading={isLoading}
-            onAddNew={() => setIsCreateOpen(true)}
-            onRefresh={handleRefresh}
-            filters={filters}
-            onFiltersChange={setFilters}
-            onDeleteSelected={handleBulkDelete}
-            tenants={tenants}
-          />
-        </TabsContent>
-
-        {['pending', 'in_transit', 'delivered', 'exception'].map((status) => (
-          <TabsContent key={status} value={status} className='space-y-4'>
-            <ShipmentDataTable
-              columns={columns}
-              data={data}
-              pageCount={pageCount}
-              pageIndex={pagination.pageIndex}
-              pageSize={pagination.pageSize}
-              onPaginationChange={setPagination}
-              onSortingChange={setSorting}
-              sorting={sorting}
-              isLoading={isLoading}
-              onAddNew={() => setIsCreateOpen(true)}
-              onRefresh={handleRefresh}
-              filters={filters}
-              onFiltersChange={setFilters}
-              onDeleteSelected={handleBulkDelete}
+      {/* Stats Section */}
+      <Suspense fallback={<StatsSkeleton />}>
+        {stats && <ShipmentStatsCards stats={stats} />}
+      </Suspense>
+      {/* Filter Tabs (Synced to URL) */}
+      {/* Filter Tabs (Synced to URL) */}
+      <ShipmentTabs currentStatus={status || 'all'} tenantId={tenant} />
+      {/* Table Section */}
+      <Card>
+        <CardContent className='p-0'>
+          <Suspense fallback={<TableSkeleton />}>
+            <ShipmentTableClient
+              data={shipmentsData?.data || []}
+              pageCount={shipmentsData?.pageCount || 1}
+              currentSort={sortBy}
+              currentFilters={{ status, tenant, search }}
               tenants={tenants}
             />
-          </TabsContent>
-        ))}
-      </Tabs>
-
-      <CreateShipmentDialog
-        open={isCreateOpen}
-        onOpenChange={setIsCreateOpen}
-        onSuccess={handleRefresh}
-      />
+          </Suspense>
+        </CardContent>
+      </Card>
     </div>
   );
 }
 
-export default function ShipmentsPage() {
+function StatsSkeleton() {
   return (
-    <Suspense
-      fallback={
-        <div className='p-8 text-center text-muted-foreground'>
-          Loading shipments...
+    <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-5'>
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className='rounded-lg border bg-card p-6 animate-pulse'>
+          <div className='h-4 bg-muted rounded w-20 mb-2'></div>
+          <div className='h-8 bg-muted rounded w-16'></div>
         </div>
-      }>
-      <ShipmentsContent />
-    </Suspense>
+      ))}
+    </div>
+  );
+}
+
+function TableSkeleton() {
+  return (
+    <div className='space-y-4'>
+      <div className='h-10 bg-muted rounded w-full animate-pulse'></div>
+      <div className='h-64 bg-muted rounded w-full animate-pulse'></div>
+    </div>
   );
 }

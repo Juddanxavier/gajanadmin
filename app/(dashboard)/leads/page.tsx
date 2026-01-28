@@ -14,7 +14,6 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DataTable } from '@/components/leads/data-table';
 import { columns } from '@/components/leads/columns';
-import { DataTableToolbar } from '@/components/leads/data-table-toolbar';
 
 import { getLeads, updateLeadStatus } from '@/app/(dashboard)/leads/actions';
 import { getTenants } from '@/app/(dashboard)/users/actions'; // Reuse existing action
@@ -136,29 +135,28 @@ function LeadsPageContent() {
           <TabsTrigger value='deleted'>Deleted</TabsTrigger>
         </TabsList>
 
-        <Card className='p-4'>
-          <DataTableToolbar filters={filters} onFiltersChange={setFilters} />
-          <DataTable
-            columns={columns}
-            data={optimisticLeads} // Use optimistic data
-            pageCount={pageCount}
-            pageIndex={pageIndex}
-            pageSize={pageSize}
-            onPaginationChange={({ pageIndex, pageSize }) => {
-              setPageIndex(pageIndex);
-              setPageSize(pageSize);
-            }}
-            onSortingChange={setSorting}
-            onRowSelectionChange={setRowSelection}
-            rowSelection={rowSelection}
-            isLoading={isLoading || isPending}
-            tenants={tenants}
-            meta={{
-              onUpdateStatus: handleUpdateStatus,
-            }}
-            // onAddNew logic not defined for admin leads view as per requirements ("only customer can create")
-          />
-        </Card>
+        <DataTable
+          columns={columns}
+          data={optimisticLeads} // Use optimistic data
+          pageCount={pageCount}
+          pageIndex={pageIndex}
+          pageSize={pageSize}
+          onPaginationChange={({ pageIndex, pageSize }) => {
+            setPageIndex(pageIndex);
+            setPageSize(pageSize);
+          }}
+          onSortingChange={setSorting}
+          onRowSelectionChange={setRowSelection}
+          rowSelection={rowSelection}
+          isLoading={isLoading || isPending}
+          tenants={tenants}
+          meta={{
+            onUpdateStatus: handleUpdateStatus,
+          }}
+          filters={filters}
+          onFiltersChange={setFilters}
+          // onAddNew logic not defined for admin leads view as per requirements ("only customer can create")
+        />
       </Tabs>
     </div>
   );

@@ -39,44 +39,49 @@ import {
 } from '@/app/(dashboard)/users/actions';
 import type { Role, Tenant, UserDisplay, RoleName } from '@/lib/types';
 import { toast } from 'sonner';
+import {
+  parsePhoneNumberFromString,
+  CountryCode,
+  getCountryCallingCode,
+} from 'libphonenumber-js';
 
-// Schema
-const formSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  name: z.string().optional(),
-  phone: z.string().optional(),
-  password: z.string().optional(),
-  role: z.enum(['admin', 'staff', 'customer']),
-  tenant: z.string().optional().nullable(),
-});
-
-type FormValues = z.infer<typeof formSchema>;
-
-// Country code mapping (ISO 2 -> Dial Code)
-const COUNTRY_PHONE_CODES: Record<string, string> = {
-  US: '1',
-  CA: '1',
-  GB: '44',
-  IN: '91',
-  AU: '61',
-  SG: '65',
-  AE: '971',
-  MY: '60',
-  TH: '66',
-  VN: '84',
-  ID: '62',
-  PH: '63',
-  CN: '86',
-  JP: '81',
-  KR: '82',
-  DE: '49',
-  FR: '33',
-  IT: '39',
-  ES: '34',
-  NL: '31',
-  LK: '94',
-  // Add more as needed
+// Helper to get country code from tenant
+const getTenantCountry = (
+  tenantId: string | null | undefined,
+  tenants: Tenant[],
+): CountryCode => {
+  if (!tenantId || tenantId === 'none') return 'US';
+  const tenant = tenants.find((t) => t.id === tenantId);
+  // Assuming tenant.code is ISO 2 char code (e.g. IN, US)
+  return (tenant?.code?.toUpperCase() as CountryCode) || 'US';
 };
+
+// Schema Definition with Refinement
+const createFormSchema = (tenants: Tenant[]) =>
+  z
+    .object({
+      email: z.string().email('Invalid email address'),
+      name: z.string().optional(),
+      phone: z.string().optional(),
+      password: z.string().optional(),
+      role: z.enum(['admin', 'staff', 'customer']),
+      tenant: z.string().optional().nullable(),
+    })
+    .superRefine((data, ctx) => {
+      if (data.phone) {
+        const countryCode = getTenantCountry(data.tenant, tenants);
+        const phoneNumber = parsePhoneNumberFromString(data.phone, countryCode);
+        if (!phoneNumber || !phoneNumber.isValid()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Invalid phone number for ${countryCode}`,
+            path: ['phone'],
+          });
+        }
+      }
+    });
+
+type FormValues = z.infer<ReturnType<typeof createFormSchema>>;
 
 interface UserFormDialogProps {
   open: boolean;
@@ -100,6 +105,9 @@ export function UserFormDialog({
   const isEdit = !!user;
   const [isLoading, setIsLoading] = useState(false);
 
+  // Memoize schema to depend on tenants
+  const formSchema = createFormSchema(tenants);
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -120,7 +128,7 @@ export function UserFormDialog({
           email: user.email,
           name: user.name || '',
           phone: user.phone || '',
-          password: '', // Password not editable directly here usually, or blank means no change
+          password: '',
           role: (user.roles[0]?.name as RoleName) || 'customer',
           tenant: user.tenants[0]?.id || null, // Assuming single tenant for simplicty in UI
         });
@@ -142,23 +150,20 @@ export function UserFormDialog({
   }, [open, user, form, isGlobalAdmin]);
 
   // Auto-fill phone prefix based on tenant
-  // We use a separate effect that depends on the selected tenant
   const selectedTenantId = form.watch('tenant');
 
   useEffect(() => {
     // Only auto-fill for new users or if phone is empty
     const currentPhone = form.getValues('phone');
     if (open && !user && (!currentPhone || currentPhone === '+')) {
-      if (selectedTenantId && selectedTenantId !== 'none') {
-        const tenant = tenants.find((t) => t.id === selectedTenantId);
-        // Assuming tenant.code is country code (e.g. 'US', 'IN')
-        // The API actually returns code: country_code || code
-        if (tenant && tenant.code) {
-          const dialCode = COUNTRY_PHONE_CODES[tenant.code.toUpperCase()];
-          if (dialCode) {
-            form.setValue('phone', `+${dialCode}`);
-          }
+      const countryCode = getTenantCountry(selectedTenantId, tenants);
+      try {
+        const callingCode = getCountryCallingCode(countryCode);
+        if (callingCode) {
+          form.setValue('phone', `+${callingCode}`);
         }
+      } catch (err) {
+        // Fallback or ignore invalid country code from tenant
       }
     }
   }, [selectedTenantId, open, user, form, tenants]);
@@ -166,12 +171,25 @@ export function UserFormDialog({
   const onSubmit = async (values: FormValues) => {
     setIsLoading(true);
     try {
+      // Format phone to E.164 before sending
+      let formattedPhone = values.phone;
+      if (values.phone) {
+        const countryCode = getTenantCountry(values.tenant, tenants);
+        const phoneNumber = parsePhoneNumberFromString(
+          values.phone,
+          countryCode,
+        );
+        if (phoneNumber) {
+          formattedPhone = phoneNumber.format('E.164');
+        }
+      }
+
       if (isEdit && user) {
         // Update
         const valuesToUpdate = {
           email: values.email !== user.email ? values.email : undefined,
           name: values.name || undefined,
-          phone: values.phone || undefined,
+          phone: formattedPhone || undefined,
           roles: [values.role],
           tenants: values.tenant ? [values.tenant] : undefined,
         };
@@ -182,8 +200,6 @@ export function UserFormDialog({
         toast.success('User updated successfully');
 
         // Construct optimistic user for update
-        // We need to match UserDisplay shape.
-        // Helper to get role object from name
         const roleObj = roles.find((r) => r.name === values.role) || {
           id: values.role,
           name: values.role,
@@ -191,7 +207,6 @@ export function UserFormDialog({
           created_at: '',
           updated_at: '',
         };
-        // Helper to get tenant object from id
         const tenantObj = values.tenant
           ? tenants.find((t) => t.id === values.tenant)
           : null;
@@ -200,10 +215,9 @@ export function UserFormDialog({
           ...user,
           email: values.email, // If changed
           name: values.name || user.name,
-          phone: values.phone || user.phone,
+          phone: formattedPhone || user.phone,
           roles: [roleObj],
-          tenants: tenantObj ? [tenantObj] : [], // Valid Tenant[]
-          // Note: Tenants is array of Tenant, we construct valid object.
+          tenants: tenantObj ? [tenantObj] : [],
         };
         onSuccess(optimisticUser);
       } else {
@@ -218,9 +232,9 @@ export function UserFormDialog({
           email: values.email,
           password: values.password,
           name: values.name || undefined,
-          phone: values.phone || undefined,
-          role: values.role as RoleName,
-          tenant: values.tenant || null, // Ensure 'none' maps to null
+          phone: formattedPhone || undefined,
+          role: values.role,
+          tenant: values.tenant || null,
         });
 
         if (!res.success) throw new Error(res.error);

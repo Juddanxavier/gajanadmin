@@ -65,8 +65,8 @@ export function LoginForm({
     try {
       const result = await loginWithPassword(formData);
 
-      if (!result.success) {
-        setError(result.error || 'Login failed');
+      if (!result?.success) {
+        setError(result?.error || 'Login failed');
         return;
       }
 
@@ -92,11 +92,11 @@ export function LoginForm({
     try {
       const result = await signInWithMagicLinkAction(email);
 
-      if (!result.success) {
-        if (result.error?.includes('Rate limit')) {
+      if (!result?.success) {
+        if (result?.error?.includes('Rate limit')) {
           setCountdown(60);
         }
-        throw new Error(result.error || 'Failed to send login link');
+        throw new Error(result?.error || 'Failed to send login link');
       }
 
       setIsLinkSent(true);

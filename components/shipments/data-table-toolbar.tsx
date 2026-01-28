@@ -20,12 +20,14 @@ interface DataTableToolbarProps {
   filters: ShipmentTableFilters;
   onFiltersChange: (filters: ShipmentTableFilters) => void;
   tenants?: Tenant[];
+  children?: React.ReactNode;
 }
 
 export function DataTableToolbar({
   filters,
   onFiltersChange,
   tenants = [],
+  children,
 }: DataTableToolbarProps) {
   const [searchValue, setSearchValue] = React.useState(filters.search ?? '');
 
@@ -65,14 +67,13 @@ export function DataTableToolbar({
             onValueChange={(value) =>
               onFiltersChange({
                 ...filters,
-                tenant: value === 'all' ? undefined : value,
+                tenant: value, // Pass 'all' explicitly to override cookie
               })
             }>
             <SelectTrigger className='h-8 w-[150px]'>
               <SelectValue placeholder='Tenant' />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value='all'>All Tenants</SelectItem>
               {tenants.map((tenant) => (
                 <SelectItem key={tenant.id} value={tenant.id}>
                   <div className='flex items-center gap-2'>
@@ -105,6 +106,7 @@ export function DataTableToolbar({
           </Button>
         )}
       </div>
+      <div className='flex items-center space-x-2'>{children}</div>
     </div>
   );
 }

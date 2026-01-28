@@ -22,29 +22,17 @@ import { CountryFlag } from '@/components/ui/country-flag';
 interface DataTableToolbarProps {
   filters: UserTableFilters;
   onFiltersChange: (filters: UserTableFilters) => void;
-  selectedCount: number;
-  onBulkDelete?: () => void;
-  onBulkAssignRole?: () => void;
   roles: Role[];
   tenants: Tenant[];
-  onRefresh: () => void;
-  onInvite?: () => void;
-  onAddNew: () => void;
-  isRefreshing?: boolean;
+  children?: React.ReactNode;
 }
 
 export function DataTableToolbar({
   filters = {},
   onFiltersChange,
-  selectedCount,
-  onBulkDelete,
-  onBulkAssignRole,
   roles,
   tenants,
-  onRefresh,
-  onInvite,
-  onAddNew,
-  isRefreshing = false,
+  children,
 }: DataTableToolbarProps) {
   const [searchValue, setSearchValue] = React.useState(filters.search ?? '');
 
@@ -151,44 +139,8 @@ export function DataTableToolbar({
       </div>
 
       {/* Right Side Actions */}
-      <div className='flex items-center space-x-2'>
-        {/* Bulk Actions */}
-        {selectedCount > 0 && onBulkDelete && (
-          <Button variant='destructive' size='sm' onClick={onBulkDelete}>
-            <Trash2 className='mr-2 h-4 w-4' />
-            Delete ({selectedCount})
-          </Button>
-        )}
-
-        {selectedCount > 0 && onBulkAssignRole && (
-          <Button variant='outline' size='sm' onClick={onBulkAssignRole}>
-            Assign Role ({selectedCount})
-          </Button>
-        )}
-
-        {/* Primary Actions */}
-        <Button
-          variant='outline'
-          size='sm'
-          onClick={onRefresh}
-          disabled={isRefreshing}>
-          <RefreshCw
-            className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`}
-          />
-          Refresh
-        </Button>
-
-        {onInvite && (
-          <Button variant='outline' size='sm' onClick={onInvite}>
-            Invite
-          </Button>
-        )}
-
-        <Button size='sm' onClick={onAddNew}>
-          <Plus className='mr-2 h-4 w-4' />
-          Add User
-        </Button>
-      </div>
+      {/* Right Side Actions */}
+      <div className='flex items-center space-x-2'>{children}</div>
     </div>
   );
 }

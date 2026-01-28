@@ -26,6 +26,12 @@ import { CarrierLogo } from './carrier-logo';
 import { EditShipmentDialog } from './edit-shipment-dialog';
 import { DeleteShipmentDialog } from './delete-shipment-dialog';
 import { CountryFlag } from '@/components/ui/country-flag';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 // Type definition matching the join in actions.ts: select('*, user:user_id(email, id)')
 export type ShipmentDisplay = {
@@ -129,12 +135,21 @@ export const columns: ColumnDef<ShipmentDisplay>[] = [
     cell: ({ row }) => {
       const carrierCode = row.getValue('carrier_id') as string;
       return (
-        <div className='flex items-center gap-2'>
-          <CarrierLogo code={carrierCode} />
-          <span className='capitalize text-muted-foreground text-xs'>
-            {carrierCode}
-          </span>
-        </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className='flex items-center justify-start'>
+              <CarrierLogo
+                code={carrierCode}
+                className='h-6 w-6'
+                width={24}
+                height={24}
+              />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className='capitalize'>{carrierCode}</p>
+          </TooltipContent>
+        </Tooltip>
       );
     },
   },
@@ -163,20 +178,28 @@ export const columns: ColumnDef<ShipmentDisplay>[] = [
         (typeof origin === 'string' && origin.length === 2
           ? origin
           : undefined);
-      return (
-        <div className='flex items-center gap-2'>
-          {countryCode && countryCode.length === 2 && (
-            <CountryFlag
-              countryCode={countryCode}
-              className='h-3 w-4.5 rounded-[2px] shrink-0'
-            />
-          )}
-          <span
-            className='text-xs text-muted-foreground truncate max-w-[120px]'
-            title={origin}>
+
+      const displayContent =
+        countryCode && countryCode.length === 2 ? (
+          <CountryFlag
+            countryCode={countryCode}
+            className='h-5 w-7 rounded-[2px] shrink-0'
+          />
+        ) : (
+          <span className='text-xs text-muted-foreground truncate max-w-[120px]'>
             {origin}
           </span>
-        </div>
+        );
+
+      return (
+        <Tooltip>
+          <TooltipTrigger className='cursor-default'>
+            {displayContent}
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{origin}</p>
+          </TooltipContent>
+        </Tooltip>
       );
     },
   },
@@ -185,9 +208,14 @@ export const columns: ColumnDef<ShipmentDisplay>[] = [
     header: 'Destination',
     cell: ({ row }) => {
       const raw = row.original.raw_response;
-      // Prioritize latest_location (actual city) over country code
+      // Prioritize latest_location (actual city) over country code, unless it's the historical placeholder
+      const location =
+        row.original.latest_location === 'Historical Data Entry'
+          ? null
+          : row.original.latest_location;
+
       const destination =
-        row.original.latest_location ||
+        location ||
         raw?.ship_to ||
         raw?.shipTo ||
         row.original.destination_country ||
@@ -198,20 +226,27 @@ export const columns: ColumnDef<ShipmentDisplay>[] = [
           ? destination
           : undefined);
 
-      return (
-        <div className='flex items-center gap-2'>
-          {countryCode && countryCode.length === 2 && (
-            <CountryFlag
-              countryCode={countryCode}
-              className='h-3 w-4.5 rounded-[2px] shrink-0'
-            />
-          )}
-          <span
-            className='text-xs text-muted-foreground truncate max-w-[120px]'
-            title={destination}>
+      const displayContent =
+        countryCode && countryCode.length === 2 ? (
+          <CountryFlag
+            countryCode={countryCode}
+            className='h-5 w-7 rounded-[2px] shrink-0'
+          />
+        ) : (
+          <span className='text-xs text-muted-foreground truncate max-w-[120px]'>
             {destination}
           </span>
-        </div>
+        );
+
+      return (
+        <Tooltip>
+          <TooltipTrigger className='cursor-default'>
+            {displayContent}
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{destination}</p>
+          </TooltipContent>
+        </Tooltip>
       );
     },
   },

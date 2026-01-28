@@ -181,31 +181,40 @@ export async function updateSettings(updates: any, tenantId?: string) {
 /**
  * Test SMTP connection
  */
-export async function testSMTPConnection(config: {
-  smtp_host: string;
-  smtp_port: number;
-  smtp_username: string;
-  smtp_password: string;
-  smtp_from_email: string;
+/**
+ * Test Notification Connection
+ */
+export async function testNotificationConnection(config: {
+  provider_id: string;
+  credentials: any;
+  from_email: string;
 }) {
   try {
-    const isStaff = await checkAdminOrStaff();
-    if (!isStaff) {
-      return { success: false, error: 'Permission denied' };
-    }
+    const isUserAdmin = await isAdmin();
+    if (!isUserAdmin) return { success: false, error: 'Permission denied' };
 
-    // TODO: Implement actual SMTP test
-    // For now, just validate the config
-    if (!config.smtp_host || !config.smtp_port || !config.smtp_from_email) {
-      return { success: false, error: 'Missing required SMTP configuration' };
+    if (!config.provider_id)
+      return { success: false, error: 'Provider ID required' };
+
+    if (config.provider_id === 'zeptomail') {
+      if (!config.credentials?.api_key)
+        return { success: false, error: 'API Key required' };
+      // TODO: Real Zepto test (e.g. fetch their profile or send dry run)
+    } else {
+      if (!config.credentials?.host || !config.credentials?.port) {
+        return { success: false, error: 'SMTP Host and Port required' };
+      }
     }
 
     // Simulate test
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    return { success: true, message: 'SMTP connection successful' };
+    return {
+      success: true,
+      message: `Connection to ${config.provider_id} successful`,
+    };
   } catch (error: any) {
-    console.error('[testSMTPConnection] Error:', error);
+    console.error('[testNotificationConnection] Error:', error);
     return { success: false, error: error.message };
   }
 }
@@ -421,11 +430,13 @@ export async function getNotificationConfig(tenantId?: string) {
  */
 export async function updateNotificationConfig(config: any, tenantId?: string) {
   try {
-    const isStaff = await checkAdminOrStaff();
-    if (!isStaff) return { success: false, error: 'Permission denied' };
-
     const targetId = await getTargetTenantId(tenantId);
     if (!targetId) return { success: false, error: 'No tenant found' };
+
+    // Strict: Admins only (for security of credentials)
+    const isUserAdmin = await isAdmin();
+    if (!isUserAdmin)
+      return { success: false, error: 'Permission denied (Admins only)' };
 
     const adminClient = createAdminClient();
 

@@ -21,12 +21,14 @@ interface DataTableToolbarProps<TData> {
   filters: LeadTableFilters;
   onFiltersChange: (filters: LeadTableFilters) => void;
   tenants?: Tenant[];
+  children?: React.ReactNode;
 }
 
 export function DataTableToolbar<TData>({
   filters,
   onFiltersChange,
   tenants = [],
+  children,
 }: DataTableToolbarProps<TData>) {
   const [searchValue, setSearchValue] = React.useState(filters.search ?? '');
 
@@ -106,6 +108,7 @@ export function DataTableToolbar<TData>({
           </Button>
         )}
       </div>
+      <div className='flex items-center space-x-2'>{children}</div>
     </div>
   );
 }
