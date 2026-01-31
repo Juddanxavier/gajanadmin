@@ -197,8 +197,10 @@ export async function testNotificationConnection(config: {
       return { success: false, error: 'Provider ID required' };
 
     if (config.provider_id === 'zeptomail') {
-      if (!config.credentials?.api_key)
-        return { success: false, error: 'API Key required' };
+      const apiKey =
+        config.credentials?.api_key || process.env.ZEPTOMAIL_API_KEY;
+      if (!apiKey)
+        return { success: false, error: 'API Key required (Config or Env)' };
       // TODO: Real Zepto test (e.g. fetch their profile or send dry run)
     } else {
       if (!config.credentials?.host || !config.credentials?.port) {
@@ -403,7 +405,10 @@ export async function updateEmailTemplate(
 /**
  * Get notification config from tenant_notification_configs
  */
-export async function getNotificationConfig(tenantId?: string) {
+export async function getNotificationConfig(
+  tenantId?: string,
+  channel: 'email' | 'whatsapp' = 'email',
+) {
   try {
     const targetId = await getTargetTenantId(tenantId);
     if (!targetId) return { success: false, error: 'No tenant found' };
@@ -413,7 +418,7 @@ export async function getNotificationConfig(tenantId?: string) {
       .from('tenant_notification_configs')
       .select('*')
       .eq('tenant_id', targetId)
-      .eq('channel', 'email')
+      .eq('channel', channel)
       .single();
 
     if (error && error.code !== 'PGRST116') throw error;
@@ -446,7 +451,7 @@ export async function updateNotificationConfig(config: any, tenantId?: string) {
       .upsert(
         {
           tenant_id: targetId,
-          channel: 'email',
+          channel: config.channel || 'email',
           provider_id: config.provider_id,
           credentials: config.credentials,
           config: config.config,
@@ -464,6 +469,87 @@ export async function updateNotificationConfig(config: any, tenantId?: string) {
     return { success: true, data };
   } catch (error: any) {
     console.error('[updateNotificationConfig] Error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * System Status Check
+ */
+export async function getSystemStatus() {
+  const status = {
+    database: { status: 'pending', message: '', latency: 0 },
+    email: { status: 'pending', message: '', provider: '' },
+    tracking: { status: 'pending', message: '' },
+    env: { status: 'ok', message: 'Environment loaded' },
+  };
+
+  try {
+    const isUserAdmin = await isAdmin();
+    if (!isUserAdmin) return { success: false, error: 'Permission denied' };
+
+    // 1. Database Check
+    const startDb = Date.now();
+    const supabase = await createClient();
+    const { error: dbError } = await supabase
+      .from('settings')
+      .select('count')
+      .limit(1)
+      .single();
+    status.database.latency = Date.now() - startDb;
+
+    if (dbError && dbError.code !== 'PGRST116') {
+      // Ignore "no rows" error for single()
+      status.database.status = 'error';
+      status.database.message = dbError.message;
+    } else {
+      status.database.status = 'ok';
+      status.database.message = 'Connected';
+    }
+
+    // 2. Email Check
+    const { data: emailConfig } = await getNotificationConfig(
+      undefined,
+      'email',
+    );
+    if (emailConfig) {
+      status.email.provider = emailConfig.provider_id;
+      if (emailConfig.provider_id === 'zeptomail') {
+        // For Zepto, just check if we have an API key (can't easily dry-run without sending)
+        // Or check if credentials.api_key exists
+        if (emailConfig.credentials?.api_key || process.env.ZEPTOMAIL_API_KEY) {
+          status.email.status = 'ok';
+          status.email.message = `Configured (${emailConfig.provider_id})`;
+        } else {
+          status.email.status = 'warning';
+          status.email.message = 'Missing API Key';
+        }
+      } else if (emailConfig.provider_id === 'smtp') {
+        if (emailConfig.credentials?.host) {
+          status.email.status = 'ok';
+          status.email.message = `Configured (${emailConfig.credentials.host})`;
+        } else {
+          status.email.status = 'warning';
+          status.email.message = 'Missing Host';
+        }
+      }
+    } else {
+      status.email.status = 'warning';
+      status.email.message = 'Not Configured';
+    }
+
+    // 3. Tracking Check
+    if (process.env.TRACK123_API_KEY) {
+      status.tracking.status = 'ok';
+      status.tracking.message = 'API Key Configured';
+    } else {
+      status.tracking.status = 'error';
+      status.tracking.message = 'Missing TRACK123_API_KEY in env';
+    }
+
+    return { success: true, data: status };
+  } catch (error: any) {
+    console.error('[getSystemStatus] Error:', error);
     return { success: false, error: error.message };
   }
 }

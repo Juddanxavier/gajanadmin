@@ -22,6 +22,7 @@ export interface GetShipmentsParams {
     provider?: string;
     search?: string;
     tenantIds?: string[];
+    archived?: boolean | 'all';
   };
   sortBy?: {
     field: string;
@@ -52,8 +53,6 @@ export class ShipmentService {
 
   async createShipment(
     params: CreateShipmentParams & {
-      userId?: string;
-      invoiceDetails?: any;
       userId?: string;
       invoiceDetails?: any;
       provider?: string;
@@ -129,7 +128,7 @@ export class ShipmentService {
         status: 'delivered', // Assume delivered for historical
         checkpoints: [],
         latest_location: 'Historical Data Entry',
-        estimated_delivery: null,
+        estimated_delivery: undefined,
         raw_response: { note: 'Historical Import' },
       };
     } else {
@@ -197,12 +196,22 @@ export class ShipmentService {
     // Exclude soft-deleted
     query = query.is('deleted_at', null);
 
-    // Filters
+    // Archival Filter
+    if (filters.archived === true) {
+      query = query.not('archived_at', 'is', null);
+    } else if (filters.archived === 'all') {
+      // No filter on archived_at
+    } else {
+      // Default: Show only active (non-archived)
+      query = query.is('archived_at', null);
+    }
+
+    // Tenant & other Filters
     if (filters.tenantIds && filters.tenantIds.length > 0) {
       query = query.in('tenant_id', filters.tenantIds);
     }
     if (filters.status) query = query.eq('status', filters.status);
-    if (filters.provider) query = query.eq('provider', filters.provider);
+    if (filters.provider) query = query.eq('carrier_id', filters.provider);
     if (filters.search)
       query = query.ilike('carrier_tracking_code', `%${filters.search}%`);
 
@@ -337,6 +346,24 @@ export class ShipmentService {
         .eq('id', shipmentId);
       if (error) throw error;
     }
+    return true;
+  }
+
+  async archiveShipment(shipmentId: string) {
+    const { error } = await this.client
+      .from('shipments')
+      .update({ archived_at: new Date().toISOString() })
+      .eq('id', shipmentId);
+    if (error) throw error;
+    return true;
+  }
+
+  async unarchiveShipment(shipmentId: string) {
+    const { error } = await this.client
+      .from('shipments')
+      .update({ archived_at: null })
+      .eq('id', shipmentId);
+    if (error) throw error;
     return true;
   }
 

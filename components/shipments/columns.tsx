@@ -19,10 +19,13 @@ import {
 import {
   syncShipmentAction,
   sendShipmentNotificationAction,
+  archiveShipmentAction,
+  unarchiveShipmentAction,
 } from '@/app/(dashboard)/shipments/actions';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { CarrierLogo } from './carrier-logo';
+import { CopyButton } from '@/components/ui/copy-button'; // Import CopyButton
 import { EditShipmentDialog } from './edit-shipment-dialog';
 import { DeleteShipmentDialog } from './delete-shipment-dialog';
 import { CountryFlag } from '@/components/ui/country-flag';
@@ -52,6 +55,7 @@ export type ShipmentDisplay = {
   user?: { email: string; id: string } | null;
   last_synced_at?: string;
   raw_response?: any;
+  archived_at?: string | null;
 };
 
 const getStatusColor = (status: string) => {
@@ -89,6 +93,24 @@ const handleSendNotification = async (id: string) => {
   });
 };
 
+const handleArchive = async (id: string) => {
+  const promise = archiveShipmentAction(id);
+  toast.promise(promise, {
+    loading: 'Archiving shipment...',
+    success: 'Shipment archived',
+    error: (err) => `Failed to archive: ${err.message}`,
+  });
+};
+
+const handleUnarchive = async (id: string) => {
+  const promise = unarchiveShipmentAction(id);
+  toast.promise(promise, {
+    loading: 'Unarchiving shipment...',
+    success: 'Shipment unarchived',
+    error: (err) => `Failed to unarchive: ${err.message}`,
+  });
+};
+
 export const columns: ColumnDef<ShipmentDisplay>[] = [
   {
     id: 'select',
@@ -113,8 +135,15 @@ export const columns: ColumnDef<ShipmentDisplay>[] = [
     accessorKey: 'white_label_code',
     header: 'White Label',
     cell: ({ row }) => (
-      <div className='text-xs text-muted-foreground'>
-        {row.getValue('white_label_code')}
+      <div className='flex items-center gap-1.5'>
+        <span className='text-xs text-muted-foreground font-mono'>
+          {row.getValue('white_label_code')}
+        </span>
+        <CopyButton
+          value={row.getValue('white_label_code')}
+          label='Copy White Label ID'
+          className='opacity-50 hover:opacity-100'
+        />
       </div>
     ),
   },
@@ -122,11 +151,18 @@ export const columns: ColumnDef<ShipmentDisplay>[] = [
     accessorKey: 'carrier_tracking_code',
     header: 'Tracking Code',
     cell: ({ row }) => (
-      <a
-        href={`/shipments/${row.original.id}`}
-        className='font-medium hover:underline text-primary'>
-        {row.getValue('carrier_tracking_code')}
-      </a>
+      <div className='flex items-center gap-1.5'>
+        <a
+          href={`/shipments/${row.original.id}`}
+          className='font-medium hover:underline text-primary truncate max-w-[150px] inline-block align-middle'>
+          {row.getValue('carrier_tracking_code')}
+        </a>
+        <CopyButton
+          value={row.getValue('carrier_tracking_code')}
+          label='Copy Tracking Code'
+          className='opacity-0 group-hover:opacity-100 transition-opacity'
+        />
+      </div>
     ),
   },
   {
@@ -327,6 +363,16 @@ export const columns: ColumnDef<ShipmentDisplay>[] = [
               <DropdownMenuItem onClick={() => handleSync(shipment.id)}>
                 <RefreshCw className='mr-2 h-4 w-4' /> Sync Now
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {shipment.archived_at ? (
+                <DropdownMenuItem onClick={() => handleUnarchive(shipment.id)}>
+                  <RefreshCw className='mr-2 h-4 w-4' /> Unarchive
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={() => handleArchive(shipment.id)}>
+                  <Trash2 className='mr-2 h-4 w-4' /> Archive
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => setDeleteOpen(true)}

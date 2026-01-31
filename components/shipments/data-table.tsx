@@ -23,34 +23,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { TableLoadingBar } from '@/components/ui/table-loading-bar';
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Plus,
-  RefreshCw,
-  Download,
-  Trash,
-} from 'lucide-react';
-import { exportToCSV } from '@/lib/utils/export';
+import { RefreshCw, Download, Trash } from 'lucide-react';
 import { exportShipmentsAction } from '@/app/(dashboard)/shipments/actions';
 import { downloadCSV } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -146,150 +122,147 @@ export function ShipmentDataTable<TData, TValue>({
   };
 
   return (
-    <Card className='border-0 shadow-none sm:border sm:shadow-sm'>
-      <CardHeader className='p-0 border-b'>
-        <DataTableToolbar
-          filters={filters}
-          onFiltersChange={onFiltersChange}
-          tenants={tenants}>
-          {onDeleteSelected &&
-            table.getFilteredSelectedRowModel().rows.length > 0 && (
-              <Button
-                variant='destructive'
-                size='sm'
-                onClick={() => {
-                  const selectedIds = table
-                    .getFilteredSelectedRowModel()
-                    .rows.map((row) => (row.original as any).id);
-                  onDeleteSelected(selectedIds);
-                  table.resetRowSelection();
-                }}>
-                <Trash className='mr-2 h-4 w-4' />
-                Delete ({table.getFilteredSelectedRowModel().rows.length})
-              </Button>
-            )}
+    <div className='space-y-4'>
+      <DataTableToolbar
+        filters={filters}
+        onFiltersChange={onFiltersChange}
+        tenants={tenants}>
+        {onDeleteSelected &&
+          table.getFilteredSelectedRowModel().rows.length > 0 && (
+            <Button
+              variant='destructive'
+              size='sm'
+              onClick={() => {
+                const selectedIds = table
+                  .getFilteredSelectedRowModel()
+                  .rows.map((row) => (row.original as any).id);
+                onDeleteSelected(selectedIds);
+                table.resetRowSelection();
+              }}>
+              <Trash className='mr-2 h-4 w-4' />
+              Delete ({table.getFilteredSelectedRowModel().rows.length})
+            </Button>
+          )}
 
-          <Button
-            variant='outline'
-            size='sm'
-            onClick={handleExport}
-            disabled={isExporting}>
-            <Download
-              className={`mr-2 h-4 w-4 ${isExporting ? 'animate-pulse' : ''}`}
-            />
-            {isExporting ? 'Exporting...' : 'Export CSV'}
-          </Button>
-          <Button
-            variant='outline'
-            size='sm'
-            onClick={onRefresh}
-            disabled={isLoading}>
-            <RefreshCw
-              className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
-            />
-            Refresh
-          </Button>
-        </DataTableToolbar>
-      </CardHeader>
-      <CardContent className='p-0'>
-        <div className='relative'>
-          <TableLoadingBar isLoading={!!isLoading && data.length > 0} />
-          <Table containerClassName='max-h-[calc(100vh-300px)]'>
-            <TableHeader className='bg-muted sticky top-0 z-20'>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => {
-                    const isSticky =
-                      header.column.id === 'carrier_tracking_code';
-                    return (
-                      <TableHead
-                        key={header.id}
-                        className={cn(
-                          isSticky &&
-                            'sticky left-0 z-30 bg-muted shadow-[4px_0_4px_-2px_rgba(0,0,0,0.1)]',
-                        )}>
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext(),
-                            )}
-                      </TableHead>
-                    );
-                  })}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {isLoading && data.length === 0 ? (
-                // Show skeleton rows on initial load
-                Array.from({ length: pageSize }).map((_, i) => (
-                  <TableRow key={i}>
-                    {columns.map((_, colIndex) => {
-                      // Note: We can't easily check accessors here since we are iterating columns array directly for skeleton
-                      // But the 3rd column (index 2) is typically tracking code. Let's keep skeleton simple or apply robustly if needed.
-                      // For simplicity, we won't apply sticky to skeleton cells unless critical.
-                      return (
-                        <TableCell key={colIndex}>
-                          <div className='h-4 bg-muted rounded animate-pulse w-full max-w-[200px]' />
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                ))
-              ) : table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() && 'selected'}
-                    className={cn(
-                      'transition-colors',
-                      isLoading ? 'opacity-50 transition-opacity' : '',
-                    )}>
-                    {row.getVisibleCells().map((cell) => {
+        <Button
+          variant='outline'
+          size='sm'
+          onClick={handleExport}
+          disabled={isExporting}>
+          <Download
+            className={`mr-2 h-4 w-4 ${isExporting ? 'animate-pulse' : ''}`}
+          />
+          {isExporting ? 'Exporting...' : 'Export CSV'}
+        </Button>
+        <Button
+          variant='outline'
+          size='sm'
+          onClick={onRefresh}
+          disabled={isLoading}>
+          <RefreshCw
+            className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
+          />
+          Refresh
+        </Button>
+      </DataTableToolbar>
+      <Card className='border-0 shadow-none sm:border sm:shadow-sm'>
+        <CardContent className='p-0'>
+          <div className='relative'>
+            <TableLoadingBar isLoading={!!isLoading} />
+            <Table containerClassName='max-h-[calc(100vh-300px)]'>
+              <TableHeader className='bg-muted sticky top-0 z-20'>
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => {
                       const isSticky =
-                        cell.column.id === 'carrier_tracking_code';
+                        header.column.id === 'carrier_tracking_code';
                       return (
-                        <TableCell
-                          key={cell.id}
+                        <TableHead
+                          key={header.id}
                           className={cn(
                             isSticky &&
-                              'sticky left-0 z-10 bg-background shadow-[4px_0_4px_-2px_rgba(0,0,0,0.1)]',
+                              'sticky left-0 z-30 bg-muted shadow-[4px_0_4px_-2px_rgba(0,0,0,0.1)]',
                           )}>
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext(),
-                          )}
-                        </TableCell>
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(
+                                header.column.columnDef.header,
+                                header.getContext(),
+                              )}
+                        </TableHead>
                       );
                     })}
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={columns.length}
-                    className='h-24 text-center'>
-                    <div className='flex flex-col items-center justify-center p-8 text-muted-foreground'>
-                      <p className='mb-2 text-lg font-medium'>
-                        No shipments found
-                      </p>
-                      <p className='text-sm'>
-                        Try adjusting your filters or search query.
-                      </p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-      <CardFooter className='p-4 border-t'>
-        <div className='w-full'>
-          <DataTablePagination table={table} />
-        </div>
-      </CardFooter>
-    </Card>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {isLoading && data.length === 0 ? (
+                  // Show skeleton rows on initial load
+                  Array.from({ length: pageSize }).map((_, i) => (
+                    <TableRow key={i}>
+                      {columns.map((_, colIndex) => {
+                        return (
+                          <TableCell key={colIndex}>
+                            <div className='h-4 bg-muted rounded animate-pulse w-full max-w-[200px]' />
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  ))
+                ) : table.getRowModel().rows?.length ? (
+                  table.getRowModel().rows.map((row) => (
+                    <TableRow
+                      key={row.id}
+                      data-state={row.getIsSelected() && 'selected'}
+                      className={cn(
+                        'transition-colors',
+                        isLoading ? 'opacity-50 transition-opacity' : '',
+                      )}>
+                      {row.getVisibleCells().map((cell) => {
+                        const isSticky =
+                          cell.column.id === 'carrier_tracking_code';
+                        return (
+                          <TableCell
+                            key={cell.id}
+                            className={cn(
+                              isSticky &&
+                                'sticky left-0 z-10 bg-background shadow-[4px_0_4px_-2px_rgba(0,0,0,0.1)]',
+                            )}>
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext(),
+                            )}
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      colSpan={columns.length}
+                      className='h-24 text-center'>
+                      <div className='flex flex-col items-center justify-center p-8 text-muted-foreground'>
+                        <p className='mb-2 text-lg font-medium'>
+                          No shipments found
+                        </p>
+                        <p className='text-sm'>
+                          Try adjusting your filters or search query.
+                        </p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+        <CardFooter className='p-4 border-t'>
+          <div className='w-full'>
+            <DataTablePagination table={table} />
+          </div>
+        </CardFooter>
+      </Card>
+    </div>
   );
 }

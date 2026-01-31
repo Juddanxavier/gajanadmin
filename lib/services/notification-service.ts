@@ -2,6 +2,7 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 import { EmailService } from './email-notification-service';
+import { WhatsAppService } from './whatsapp-notification-service';
 
 export interface NotificationPayload {
   shipmentId: string;
@@ -26,11 +27,13 @@ export type NotificationResult = {
 
 export class NotificationService {
   private emailService: EmailService;
+  private whatsappService: WhatsAppService;
   private supabase: SupabaseClient;
 
   constructor(supabase: SupabaseClient) {
     this.supabase = supabase;
     this.emailService = new EmailService(supabase as any);
+    this.whatsappService = new WhatsAppService(supabase as any);
   }
 
   /**
@@ -70,15 +73,26 @@ export class NotificationService {
       };
     }
 
-    // 2. Send WhatsApp (Stub)
+    // 2. Send WhatsApp (Priority over SMS)
     if (payload.recipientPhone) {
-      // console.log(`[NotificationService] Dispatching WhatsApp for ${payload.trackingCode}`);
-      // TODO: Implement WhatsApp Service
-      results.whatsapp = {
-        success: false,
-        skipped: true,
-        message: 'WhatsApp provider not implemented',
-      };
+      console.log(
+        `[NotificationService] Dispatching WhatsApp for ${payload.trackingCode}`,
+      );
+
+      try {
+        const res = await this.whatsappService.sendShipmentNotification({
+          shipmentId: payload.shipmentId,
+          tenantId: payload.tenantId,
+          recipientPhone: payload.recipientPhone,
+          recipientName: payload.recipientName || 'Customer',
+          trackingCode: payload.trackingCode,
+          status: payload.status,
+        });
+        results.whatsapp = { success: res.success, message: res.message };
+      } catch (error: any) {
+        console.error('[NotificationService] WhatsApp Failed:', error);
+        results.whatsapp = { success: false, error: error.message };
+      }
     } else {
       results.whatsapp = {
         success: false,
@@ -86,6 +100,13 @@ export class NotificationService {
         message: 'No phone provided',
       };
     }
+
+    // 3. SMS (Deprecated/Removed)
+    results.sms = {
+      success: false,
+      skipped: true,
+      message: 'SMS channel deprecated in favor of WhatsApp',
+    };
 
     return results;
   }

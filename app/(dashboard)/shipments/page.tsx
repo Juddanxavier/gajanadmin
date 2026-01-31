@@ -16,23 +16,33 @@ import { Card, CardContent } from '@/components/ui/card';
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
-  searchParams: {
+  searchParams: Promise<{
     page?: string;
     limit?: string;
     status?: string;
     sort?: string;
     tenant?: string;
     search?: string;
-  };
+    provider?: string;
+    archived?: string;
+  }>;
 }
 
-export default async function ShipmentsPage({ searchParams }: PageProps) {
+export default async function ShipmentsPage(props: PageProps) {
+  const searchParams = await props.searchParams;
   // Parse Params
   const page = Number(searchParams.page) || 1;
   const pageSize = Number(searchParams.limit) || 10;
   const status =
     searchParams.status === 'all' ? undefined : searchParams.status;
+  const provider =
+    searchParams.provider === 'all' ? undefined : searchParams.provider;
   const search = searchParams.search;
+
+  const archivedParam = searchParams.archived;
+  let archived: boolean | 'all' = false;
+  if (archivedParam === 'true') archived = true;
+  if (archivedParam === 'all') archived = 'all';
 
   // sort format: "field.dir" (e.g. "created_at.desc")
   let sortBy = undefined;
@@ -62,7 +72,7 @@ export default async function ShipmentsPage({ searchParams }: PageProps) {
     getShipments({
       page,
       pageSize,
-      filters: { status, tenant, search },
+      filters: { status, tenant, search, provider, archived },
       sortBy,
     }),
   ]);
@@ -89,21 +99,23 @@ export default async function ShipmentsPage({ searchParams }: PageProps) {
       </Suspense>
       {/* Filter Tabs (Synced to URL) */}
       {/* Filter Tabs (Synced to URL) */}
-      <ShipmentTabs currentStatus={status || 'all'} tenantId={tenant} />
+      <ShipmentTabs
+        currentStatus={status || 'all'}
+        currentArchived={
+          archived === true ? 'archived' : archived === 'all' ? 'all' : 'active'
+        }
+        tenantId={tenant}
+      />
       {/* Table Section */}
-      <Card>
-        <CardContent className='p-0'>
-          <Suspense fallback={<TableSkeleton />}>
-            <ShipmentTableClient
-              data={shipmentsData?.data || []}
-              pageCount={shipmentsData?.pageCount || 1}
-              currentSort={sortBy}
-              currentFilters={{ status, tenant, search }}
-              tenants={tenants}
-            />
-          </Suspense>
-        </CardContent>
-      </Card>
+      <Suspense fallback={<TableSkeleton />}>
+        <ShipmentTableClient
+          data={shipmentsData?.data || []}
+          pageCount={shipmentsData?.pageCount || 1}
+          currentSort={sortBy}
+          currentFilters={{ status, tenant, search, provider, archived }}
+          tenants={tenants}
+        />
+      </Suspense>
     </div>
   );
 }

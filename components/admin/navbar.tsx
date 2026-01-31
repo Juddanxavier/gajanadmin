@@ -30,8 +30,15 @@ import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
 import { Input } from '../ui/input';
 import { useTheme } from 'next-themes';
 import { createClient } from '@/lib/supabase/client';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { sidebarGroups } from '@/lib/config/navigation';
+import { cn } from '@/lib/utils';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '../ui/collapsible';
 
 import { GlobalSearch } from '@/components/admin/global-search';
 import { AdminBreadcrumbs } from '@/components/admin/breadcrumbs';
@@ -49,6 +56,7 @@ export default function Navbar({
 }: NavbarProps) {
   const { theme, setTheme } = useTheme();
   const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<{
     name: string;
     email: string;
@@ -138,23 +146,90 @@ export default function Navbar({
                     Admin Panel
                   </h2>
                 </div>
-                <nav className='flex-1 space-y-1 p-2'>
-                  <Link
-                    href='/dashboard'
-                    className='flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'>
-                    Dashboard
-                  </Link>
-                  <Link
-                    href='/users'
-                    className='flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'>
-                    Users
-                  </Link>
-                  <Link
-                    href='/settings'
-                    className='flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'>
-                    Settings
-                  </Link>
-                </nav>
+                <div className='flex-1 overflow-y-auto px-2 py-2'>
+                  {sidebarGroups.map((group, groupIndex) => (
+                    <div key={groupIndex} className='mb-4'>
+                      {group.label && (
+                        <h4 className='mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70'>
+                          {group.label}
+                        </h4>
+                      )}
+                      <div className='space-y-1'>
+                        {group.items.map((item) => {
+                          const Icon = item.icon;
+                          const isActive =
+                            pathname === item.href ||
+                            item.children?.some(
+                              (child) => pathname === child.href,
+                            );
+                          const hasChildren =
+                            item.children && item.children.length > 0;
+
+                          if (hasChildren) {
+                            return (
+                              <Collapsible
+                                key={item.title}
+                                defaultOpen={isActive}
+                                className='group/collapsible'>
+                                <CollapsibleTrigger asChild>
+                                  <div
+                                    className={cn(
+                                      'flex w-full cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                                      isActive
+                                        ? 'text-foreground'
+                                        : 'text-muted-foreground',
+                                    )}>
+                                    <div className='flex items-center gap-3'>
+                                      <Icon className='h-4 w-4' />
+                                      <span>{item.title}</span>
+                                    </div>
+                                    <ChevronDown className='h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180' />
+                                  </div>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent>
+                                  <div className='ml-9 mt-1 space-y-1 border-l pl-2'>
+                                    {item.children?.map((child) => {
+                                      const isChildActive =
+                                        pathname === child.href;
+                                      return (
+                                        <Link
+                                          key={child.href}
+                                          href={child.href}
+                                          className={cn(
+                                            'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                                            isChildActive
+                                              ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                                              : 'text-muted-foreground',
+                                          )}>
+                                          {child.title}
+                                        </Link>
+                                      );
+                                    })}
+                                  </div>
+                                </CollapsibleContent>
+                              </Collapsible>
+                            );
+                          }
+
+                          return (
+                            <Link
+                              key={item.href}
+                              href={item.href}
+                              className={cn(
+                                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                                isActive
+                                  ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                                  : 'text-muted-foreground',
+                              )}>
+                              <Icon className='h-4 w-4' />
+                              <span>{item.title}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </SheetContent>
           </Sheet>

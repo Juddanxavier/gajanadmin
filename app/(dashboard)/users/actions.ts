@@ -53,8 +53,13 @@ export async function getUsers(
 ): Promise<ActionResponse<PaginatedResponse<UserDisplay>>> {
   try {
     // 1. Check Permissions using Authenticated Client
-    const isGlobalAdmin = await isAdmin();
-    const userTenantIds = await getUserTenantIds();
+    const supabaseClient = await createClient();
+    const {
+      data: { user },
+    } = await supabaseClient.auth.getUser();
+
+    const isGlobalAdmin = await isAdmin(user);
+    const userTenantIds = await getUserTenantIds(user);
 
     // Enforce Scope: If not admin and no tenants, they see nothing
     if (!isGlobalAdmin && (!userTenantIds || userTenantIds.length === 0)) {
@@ -203,8 +208,13 @@ export async function createUser(
     const validated = CreateUserSchema.parse(input);
 
     // 2. Permissions
-    const isGlobalAdmin = await isAdmin();
-    const userTenantIds = await getUserTenantIds();
+    const supabaseClient = await createClient();
+    const {
+      data: { user },
+    } = await supabaseClient.auth.getUser();
+
+    const isGlobalAdmin = await isAdmin(user);
+    const userTenantIds = await getUserTenantIds(user);
 
     if (validated.role === 'admin' && !isGlobalAdmin) {
       return errorResponse(new Error('Only Global Admins can create Admins.'));
@@ -355,9 +365,13 @@ export async function updateUser(
 ): Promise<ActionResponse<void>> {
   try {
     const supabase = createAdminClient();
+    const supabaseClient = await createClient();
+    const {
+      data: { user },
+    } = await supabaseClient.auth.getUser();
 
     // 0. Permission Checks
-    const isGlobalAdmin = await isAdmin();
+    const isGlobalAdmin = await isAdmin(user);
 
     if (!isGlobalAdmin) {
       // Rule: Staff cannot change roles
@@ -445,7 +459,12 @@ export async function deleteUser(
     const supabase = createAdminClient();
     console.log('[deleteUser] Attempting to delete user:', userId);
 
-    const isGlobalAdmin = await isAdmin();
+    const supabaseClient = await createClient();
+    const {
+      data: { user },
+    } = await supabaseClient.auth.getUser();
+
+    const isGlobalAdmin = await isAdmin(user);
     if (!isGlobalAdmin) {
       // Check if target is admin
       const { data: targetRoles } = await supabase
@@ -592,7 +611,12 @@ export async function bulkDeleteUsers(
   try {
     const supabase = createAdminClient();
 
-    const isGlobalAdmin = await isAdmin();
+    const supabaseClient = await createClient();
+    const {
+      data: { user },
+    } = await supabaseClient.auth.getUser();
+
+    const isGlobalAdmin = await isAdmin(user);
     if (!isGlobalAdmin) {
       // Check if ANY target is admin
       const { data: targetRoles } = await supabase
@@ -639,7 +663,12 @@ export async function bulkAssignRole(
   try {
     const supabase = createAdminClient();
 
-    const isGlobalAdmin = await isAdmin();
+    const supabaseClient = await createClient();
+    const {
+      data: { user },
+    } = await supabaseClient.auth.getUser();
+
+    const isGlobalAdmin = await isAdmin(user);
     if (!isGlobalAdmin) {
       return errorResponse(
         new Error('Only Administrators can perform bulk role assignments.'),
@@ -702,7 +731,12 @@ export async function inviteUserByEmailAction(
     if (data.user) {
       const userId = data.user.id;
 
-      const isGlobalAdmin = await isAdmin();
+      const supabaseClient = await createClient();
+      const {
+        data: { user },
+      } = await supabaseClient.auth.getUser();
+      const isGlobalAdmin = await isAdmin(user);
+
       if (!isGlobalAdmin) {
         if (role !== 'customer')
           throw new Error('Staff can only invite Customers.');
@@ -710,7 +744,7 @@ export async function inviteUserByEmailAction(
         // but strict backend check requires fetching user tenants.
         // For brevity in this action, we rely on the fact that `inviteUserByEmail`
         // arguments are controlled by caller. But ideally we repeat the check.
-        const userTenantIds = await getUserTenantIds();
+        const userTenantIds = await getUserTenantIds(user);
         if (tenantId && !userTenantIds.includes(tenantId)) {
           throw new Error('Invalid tenant assignment.');
         }
@@ -765,11 +799,16 @@ export async function generateInviteLinkAction(
     if (data.user) {
       const userId = data.user.id;
 
-      const isGlobalAdmin = await isAdmin();
+      const supabaseClient = await createClient();
+      const {
+        data: { user },
+      } = await supabaseClient.auth.getUser();
+      const isGlobalAdmin = await isAdmin(user);
+
       if (!isGlobalAdmin) {
         if (role !== 'customer')
           throw new Error('Staff can only invite Customers.');
-        const userTenantIds = await getUserTenantIds();
+        const userTenantIds = await getUserTenantIds(user);
         if (tenantId && !userTenantIds.includes(tenantId)) {
           throw new Error('Invalid tenant assignment.');
         }

@@ -93,6 +93,7 @@ export async function getShipments(
         `search:${params.filters?.search || ''}`,
         `provider:${params.filters?.provider || ''}`,
         `tenant:${effectiveTenantIds ? effectiveTenantIds.sort().join(',') : 'ALL'}`,
+        `archived:${params.filters?.archived || 'false'}`,
         `sort:${params.sortBy?.id}:${params.sortBy?.desc}`,
       ];
       return parts.join('|');
@@ -109,6 +110,12 @@ export async function getShipments(
             ...params.filters,
             tenantIds: effectiveTenantIds,
           },
+          sortBy: params.sortBy
+            ? {
+                field: params.sortBy.id,
+                direction: params.sortBy.desc ? 'desc' : 'asc',
+              }
+            : undefined,
         });
       },
       [`shipments-list-${cacheKey}`],
@@ -122,7 +129,10 @@ export async function getShipments(
 
     return successResponse(result);
   } catch (error: any) {
-    console.error('getShipments Error:', error);
+    console.error(
+      'getShipments Error:',
+      JSON.stringify(error, Object.getOwnPropertyNames(error), 2),
+    );
     return errorResponse(error);
   }
 }
@@ -176,7 +186,6 @@ export async function createShipmentAction(values: {
   customer_name: string;
   customer_email?: string;
   customer_phone?: string;
-  customer_phone?: string;
   tenantId?: string;
   is_archived?: boolean;
 }): Promise<ActionResponse<any>> {
@@ -219,7 +228,6 @@ export async function createShipmentAction(values: {
       customer_email: values.customer_email || undefined,
       customer_phone: values.customer_phone || undefined,
       tenantId: tenantId,
-      tenantId: tenantId,
       invoiceDetails: values.amount ? { amount: values.amount } : undefined,
       isArchived: values.is_archived,
     });
@@ -254,6 +262,34 @@ export async function bulkDeleteShipmentsAction(
     const result = await service.bulkDeleteShipments(shipmentIds);
     revalidatePath('/shipments');
     return successResponse(result);
+  } catch (error: any) {
+    return errorResponse(error);
+  }
+}
+
+export async function archiveShipmentAction(
+  shipmentId: string,
+): Promise<ActionResponse<any>> {
+  try {
+    await ensureStaffAccess();
+    const service = new ShipmentService(createAdminClient());
+    await service.archiveShipment(shipmentId);
+    revalidatePath('/shipments');
+    return successResponse(true);
+  } catch (error: any) {
+    return errorResponse(error);
+  }
+}
+
+export async function unarchiveShipmentAction(
+  shipmentId: string,
+): Promise<ActionResponse<any>> {
+  try {
+    await ensureStaffAccess();
+    const service = new ShipmentService(createAdminClient());
+    await service.unarchiveShipment(shipmentId);
+    revalidatePath('/shipments');
+    return successResponse(true);
   } catch (error: any) {
     return errorResponse(error);
   }

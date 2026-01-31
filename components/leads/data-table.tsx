@@ -12,7 +12,14 @@ import {
   RowSelectionState,
   SortingState,
 } from '@tanstack/react-table';
-import { Table, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   Card,
   CardContent,
@@ -98,101 +105,101 @@ export function DataTable<TData, TValue>({
   });
 
   return (
-    <Card className='border-0 shadow-none sm:border sm:shadow-sm'>
+    <div className='space-y-4'>
       {onFiltersChange && (
-        <CardHeader className='p-0 border-b'>
-          <DataTableToolbar
-            filters={filters}
-            onFiltersChange={onFiltersChange}
-            tenants={tenants}
-          />
-        </CardHeader>
+        <DataTableToolbar
+          filters={filters}
+          onFiltersChange={onFiltersChange}
+          tenants={tenants}
+        />
       )}
 
-      <CardContent className='p-0'>
-        <div className='relative'>
-          {isLoading && data.length > 0 && (
-            <div className='absolute inset-0 z-10 bg-background/50 flex items-center justify-center backdrop-blur-[1px]'>
-              <Loader2 className='h-8 w-8 animate-spin text-primary' />
-            </div>
-          )}
-          <Table containerClassName='max-h-[calc(100vh-300px)]'>
-            <TableHeader className='bg-muted sticky top-0 z-20'>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow
-                  key={headerGroup.id}
-                  className='hover:bg-transparent border-b border-border'>
-                  {headerGroup.headers.map((header) => {
-                    return (
-                      <TableHead
-                        key={header.id}
-                        className='font-bold text-foreground'>
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext(),
-                            )}
-                      </TableHead>
-                    );
-                  })}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {isLoading && data.length === 0 ? (
-                // Simple Loading Skeletons for initial load
-                Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    {columns.map((_, colIndex) => (
-                      <TableCell key={colIndex}>
-                        <div className='h-4 bg-muted rounded w-24 animate-pulse' />
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              ) : table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => (
+      <Card className='border-0 shadow-none sm:border sm:shadow-sm'>
+        <CardContent className='p-0'>
+          <div className='relative'>
+            {isLoading && data.length > 0 && (
+              <div className='absolute inset-0 z-10 bg-background/50 flex items-center justify-center backdrop-blur-[1px]'>
+                <Loader2 className='h-8 w-8 animate-spin text-primary' />
+              </div>
+            )}
+            <Table containerClassName='max-h-[calc(100vh-300px)]'>
+              <TableHeader className='bg-muted sticky top-0 z-20'>
+                {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() && 'selected'}
-                    className={cn(
-                      'cursor-pointer transition-colors',
-                      isLoading &&
-                        'opacity-50 pointer-events-none transition-opacity duration-200',
-                    )}
-                    onClick={() =>
-                      router.push(`/leads/${(row.original as any).id}`)
-                    }>
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
-                      </TableCell>
-                    ))}
+                    key={headerGroup.id}
+                    className='hover:bg-transparent border-b border-border'>
+                    {headerGroup.headers.map((header) => {
+                      return (
+                        <TableHead
+                          key={header.id}
+                          className='font-bold text-foreground'>
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(
+                                header.column.columnDef.header,
+                                header.getContext(),
+                              )}
+                        </TableHead>
+                      );
+                    })}
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={columns.length}
-                    className='h-24 text-center'>
-                    No results.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {isLoading && data.length === 0 ? (
+                  // Simple Loading Skeletons for initial load
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      {columns.map((_, colIndex) => (
+                        <TableCell key={colIndex}>
+                          <div className='h-4 bg-muted rounded w-24 animate-pulse' />
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : table.getRowModel().rows?.length ? (
+                  table.getRowModel().rows.map((row) => (
+                    <TableRow
+                      key={row.id}
+                      data-state={row.getIsSelected() && 'selected'}
+                      className={cn(
+                        'cursor-pointer transition-colors',
+                        isLoading &&
+                          'opacity-50 pointer-events-none transition-opacity duration-200',
+                      )}
+                      onClick={() =>
+                        router.push(`/leads/${(row.original as any).id}`)
+                      }>
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext(),
+                          )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      colSpan={columns.length}
+                      className='h-24 text-center'>
+                      No results.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
 
-      <CardFooter className='p-4 border-t'>
-        <div className='w-full'>
-          <DataTablePagination table={table} />
-        </div>
-      </CardFooter>
-    </Card>
+        <CardFooter className='p-4 border-t'>
+          <div className='w-full'>
+            <DataTablePagination table={table} />
+          </div>
+        </CardFooter>
+      </Card>
+    </div>
   );
 }

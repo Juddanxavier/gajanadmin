@@ -23,27 +23,20 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import {
   Settings as SettingsIcon,
   Bell,
   Truck,
-  Users,
-  Palette,
-  Package,
   Loader2,
   Save,
   TestTube,
-  CheckCircle2,
-  AlertCircle,
   Building2,
-  Globe,
-  Mail,
-  Lock,
-  Eye,
-  EyeOff,
-  Database,
+  Activity,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 import {
   getSettings,
@@ -53,6 +46,7 @@ import {
   getAllTenants,
   getNotificationConfig,
   updateNotificationConfig,
+  getSystemStatus,
 } from './actions';
 
 export default function SettingsPage() {
@@ -64,10 +58,11 @@ export default function SettingsPage() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [showSmtpPassword, setShowSmtpPassword] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
-  const [useMockData, setUseMockData] = useState(false);
   const [isAdminUser, setIsAdminUser] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [systemStatus, setSystemStatus] = useState<any>(null);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
 
   // Tenant switching for Admins
   const [tenants, setTenants] = useState<any[]>([]);
@@ -76,14 +71,16 @@ export default function SettingsPage() {
   );
 
   useEffect(() => {
+    setMounted(true);
     // Determine if user is admin and fetch tenants
     checkAdminAndFetchTenants();
-    // Load mock data setting from localStorage
-    const storedMockData = localStorage.getItem('use-mock-data');
-    if (storedMockData !== null) {
-      setUseMockData(storedMockData === 'true');
-    }
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'status') {
+      checkSystemStatus();
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     // Re-load settings when tenant selection changes (or on initial load)
@@ -109,14 +106,12 @@ export default function SettingsPage() {
     setIsLoading(true);
     const [settingsRes, notifRes] = await Promise.all([
       getSettings(tenantId),
-      getNotificationConfig(tenantId),
+      getNotificationConfig(tenantId, 'email'),
     ]);
 
     if (settingsRes.success) {
       setSettings(settingsRes.data);
     } else {
-      // Only show error if we explicitly requested a tenant or if we know tenants exist but failed
-      // This prevents "No tenant found" error on initial load for Admins before auto-select occurs
       if (tenantId || tenants.length > 0) {
         toast.error(settingsRes.error || 'Failed to load settings');
       }
@@ -126,7 +121,6 @@ export default function SettingsPage() {
       if (notifRes.data) {
         setNotifSettings(notifRes.data);
       } else {
-        // Defaults if no record
         setNotifSettings({
           provider_id: 'smtp',
           credentials: {},
@@ -134,6 +128,7 @@ export default function SettingsPage() {
         });
       }
     }
+
     setIsLoading(false);
   };
 
@@ -179,7 +174,18 @@ export default function SettingsPage() {
     }
   };
 
-  if (isLoading) {
+  const checkSystemStatus = async () => {
+    setIsCheckingStatus(true);
+    const result = await getSystemStatus();
+    if (result.success) {
+      setSystemStatus(result.data);
+    } else {
+      toast.error('Failed to check system status: ' + result.error);
+    }
+    setIsCheckingStatus(false);
+  };
+
+  if (!mounted || isLoading) {
     return (
       <div className='flex items-center justify-center h-96'>
         <Loader2 className='h-8 w-8 animate-spin text-muted-foreground' />
@@ -240,7 +246,7 @@ export default function SettingsPage() {
         value={activeTab}
         onValueChange={setActiveTab}
         className='space-y-4'>
-        <TabsList className='grid w-full grid-cols-7 lg:w-auto'>
+        <TabsList className='grid w-full grid-cols-4 lg:w-auto'>
           <TabsTrigger value='general' className='gap-2'>
             <Building2 className='h-4 w-4' />
             <span className='hidden sm:inline'>General</span>
@@ -255,21 +261,9 @@ export default function SettingsPage() {
             <Truck className='h-4 w-4' />
             <span className='hidden sm:inline'>Tracking</span>
           </TabsTrigger>
-          <TabsTrigger value='users' className='gap-2'>
-            <Users className='h-4 w-4' />
-            <span className='hidden sm:inline'>Users</span>
-          </TabsTrigger>
-          <TabsTrigger value='appearance' className='gap-2'>
-            <Palette className='h-4 w-4' />
-            <span className='hidden sm:inline'>Appearance</span>
-          </TabsTrigger>
-          <TabsTrigger value='shipments' className='gap-2'>
-            <Package className='h-4 w-4' />
-            <span className='hidden sm:inline'>Shipments</span>
-          </TabsTrigger>
-          <TabsTrigger value='developer' className='gap-2'>
-            <Database className='h-4 w-4' />
-            <span className='hidden sm:inline'>Developer</span>
+          <TabsTrigger value='status' className='gap-2'>
+            <Activity className='h-4 w-4' />
+            <span className='hidden sm:inline'>System Status</span>
           </TabsTrigger>
         </TabsList>
 
@@ -408,29 +402,11 @@ export default function SettingsPage() {
                   </p>
                 </div>
                 <Switch
-                  checked={settings?.email_notifications_enabled}
+                  checked={!!settings?.email_notifications_enabled}
                   onCheckedChange={(checked) =>
                     setSettings({
                       ...settings,
                       email_notifications_enabled: checked,
-                    })
-                  }
-                />
-              </div>
-              <Separator />
-              <div className='flex items-center justify-between'>
-                <div className='space-y-0.5'>
-                  <Label>SMS Notifications</Label>
-                  <p className='text-sm text-muted-foreground'>
-                    Receive SMS alerts for critical updates
-                  </p>
-                </div>
-                <Switch
-                  checked={settings?.sms_notifications_enabled}
-                  onCheckedChange={(checked) =>
-                    setSettings({
-                      ...settings,
-                      sms_notifications_enabled: checked,
                     })
                   }
                 />
@@ -620,23 +596,9 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className='space-y-4'>
-              <div className='space-y-2'>
-                <Label htmlFor='track123_api_key'>Track123 API Key</Label>
-                <Input
-                  id='track123_api_key'
-                  value={settings?.track123_api_key || ''}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      track123_api_key: e.target.value,
-                    })
-                  }
-                  placeholder='Enter your Track123 API key'
-                  type='password'
-                />
-                <p className='text-xs text-muted-foreground'>
-                  Get your API key from Track123 dashboard
-                </p>
+              <div className='p-4 border rounded-lg bg-muted/50 text-sm text-muted-foreground'>
+                Tracking API configuration is managed via environment variables
+                (<code>TRACK123_API_KEY</code>).
               </div>
             </CardContent>
           </Card>
@@ -657,7 +619,7 @@ export default function SettingsPage() {
                   </p>
                 </div>
                 <Switch
-                  checked={settings?.auto_sync_enabled}
+                  checked={!!settings?.auto_sync_enabled}
                   onCheckedChange={(checked) =>
                     setSettings({ ...settings, auto_sync_enabled: checked })
                   }
@@ -733,414 +695,138 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* User & Access Settings */}
-        <TabsContent value='users' className='space-y-4'>
-          <Card>
-            <CardHeader>
-              <CardTitle>Default User Settings</CardTitle>
-              <CardDescription>
-                Configure default settings for new users
-              </CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <div className='space-y-2'>
-                <Label htmlFor='default_user_role'>Default Role</Label>
-                <Select
-                  value={settings?.default_user_role}
-                  onValueChange={(value) =>
-                    setSettings({ ...settings, default_user_role: value })
-                  }>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value='customer'>Customer</SelectItem>
-                    <SelectItem value='staff'>Staff</SelectItem>
-                    <SelectItem value='admin'>Admin</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
+        {/* System Status Tab */}
+        <TabsContent value='status' className='space-y-4'>
+          <div className='flex items-center justify-between'>
+            <div>
+              <h2 className='text-lg font-medium'>System Heath Check</h2>
+              <p className='text-sm text-muted-foreground'>
+                Real-time status of system components and integrations
+              </p>
+            </div>
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={checkSystemStatus}
+              disabled={isCheckingStatus}>
+              <RefreshCw
+                className={`mr-2 h-4 w-4 ${isCheckingStatus ? 'animate-spin' : ''}`}
+              />
+              Refresh Status
+            </Button>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Password Requirements</CardTitle>
-              <CardDescription>
-                Set password complexity requirements
-              </CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-6'>
-              <div className='space-y-2'>
-                <Label htmlFor='password_min_length'>Minimum Length</Label>
-                <Input
-                  id='password_min_length'
-                  type='number'
-                  min='6'
-                  max='32'
-                  value={settings?.password_min_length || ''}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      password_min_length: parseInt(e.target.value),
-                    })
-                  }
-                />
-              </div>
-              <Separator />
-              <div className='flex items-center justify-between'>
-                <Label>Require Uppercase Letters</Label>
-                <Switch
-                  checked={settings?.password_require_uppercase}
-                  onCheckedChange={(checked) =>
-                    setSettings({
-                      ...settings,
-                      password_require_uppercase: checked,
-                    })
-                  }
-                />
-              </div>
-              <Separator />
-              <div className='flex items-center justify-between'>
-                <Label>Require Numbers</Label>
-                <Switch
-                  checked={settings?.password_require_numbers}
-                  onCheckedChange={(checked) =>
-                    setSettings({
-                      ...settings,
-                      password_require_numbers: checked,
-                    })
-                  }
-                />
-              </div>
-              <Separator />
-              <div className='flex items-center justify-between'>
-                <Label>Require Symbols</Label>
-                <Switch
-                  checked={settings?.password_require_symbols}
-                  onCheckedChange={(checked) =>
-                    setSettings({
-                      ...settings,
-                      password_require_symbols: checked,
-                    })
-                  }
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Security Settings</CardTitle>
-              <CardDescription>
-                Configure security and session settings
-              </CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-6'>
-              <div className='space-y-2'>
-                <Label htmlFor='session_timeout_minutes'>
-                  Session Timeout (minutes)
-                </Label>
-                <Input
-                  id='session_timeout_minutes'
-                  type='number'
-                  min='15'
-                  max='10080'
-                  value={settings?.session_timeout_minutes || ''}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      session_timeout_minutes: parseInt(e.target.value),
-                    })
-                  }
-                />
-                <p className='text-xs text-muted-foreground'>
-                  Default: 1440 minutes (24 hours)
+          <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
+            {/* Database Status */}
+            <Card>
+              <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+                <CardTitle className='text-sm font-medium'>Database</CardTitle>
+                <Activity className='h-4 w-4 text-muted-foreground' />
+              </CardHeader>
+              <CardContent>
+                <div className='flex items-center gap-2'>
+                  {systemStatus?.database?.status === 'ok' ? (
+                    <CheckCircle className='h-5 w-5 text-green-500' />
+                  ) : (
+                    <XCircle className='h-5 w-5 text-red-500' />
+                  )}
+                  <div className='text-2xl font-bold'>
+                    {systemStatus?.database?.status === 'ok'
+                      ? 'Connected'
+                      : 'Error'}
+                  </div>
+                </div>
+                <p className='text-xs text-muted-foreground mt-1'>
+                  {systemStatus?.database?.message}
+                  {systemStatus?.database?.latency > 0 &&
+                    ` (${systemStatus.database.latency}ms)`}
                 </p>
-              </div>
-              <Separator />
-              <div className='flex items-center justify-between'>
-                <div className='space-y-0.5'>
-                  <Label>Two-Factor Authentication</Label>
-                  <p className='text-sm text-muted-foreground'>
-                    Require 2FA for all users
-                  </p>
-                </div>
-                <Switch
-                  checked={settings?.two_factor_enabled}
-                  onCheckedChange={(checked) =>
-                    setSettings({ ...settings, two_factor_enabled: checked })
-                  }
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+              </CardContent>
+            </Card>
 
-        {/* Appearance Settings */}
-        <TabsContent value='appearance' className='space-y-4'>
-          <Card>
-            <CardHeader>
-              <CardTitle>Theme Settings</CardTitle>
-              <CardDescription>
-                Customize the look and feel of your application
-              </CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <div className='space-y-2'>
-                <Label htmlFor='theme'>Theme</Label>
-                <Select
-                  value={settings?.theme}
-                  onValueChange={(value) =>
-                    setSettings({ ...settings, theme: value })
-                  }>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value='light'>Light</SelectItem>
-                    <SelectItem value='dark'>Dark</SelectItem>
-                    <SelectItem value='system'>System</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className='space-y-2'>
-                <Label htmlFor='primary_color'>Primary Color</Label>
-                <div className='flex gap-2'>
-                  <Input
-                    id='primary_color'
-                    type='color'
-                    value={settings?.primary_color || '#3b82f6'}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        primary_color: e.target.value,
-                      })
-                    }
-                    className='w-20 h-10'
-                  />
-                  <Input
-                    value={settings?.primary_color || '#3b82f6'}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        primary_color: e.target.value,
-                      })
-                    }
-                    placeholder='#3b82f6'
-                    className='flex-1'
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Table Settings</CardTitle>
-              <CardDescription>
-                Configure default table display preferences
-              </CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <div className='space-y-2'>
-                <Label htmlFor='table_density'>Table Density</Label>
-                <Select
-                  value={settings?.table_density}
-                  onValueChange={(value) =>
-                    setSettings({ ...settings, table_density: value })
-                  }>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value='compact'>Compact</SelectItem>
-                    <SelectItem value='comfortable'>Comfortable</SelectItem>
-                    <SelectItem value='spacious'>Spacious</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className='space-y-2'>
-                <Label htmlFor='default_page_size'>Default Page Size</Label>
-                <Select
-                  value={settings?.default_page_size?.toString()}
-                  onValueChange={(value) =>
-                    setSettings({
-                      ...settings,
-                      default_page_size: parseInt(value),
-                    })
-                  }>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value='10'>10 rows</SelectItem>
-                    <SelectItem value='25'>25 rows</SelectItem>
-                    <SelectItem value='50'>50 rows</SelectItem>
-                    <SelectItem value='100'>100 rows</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Shipment Settings */}
-        <TabsContent value='shipments' className='space-y-4'>
-          <Card>
-            <CardHeader>
-              <CardTitle>Data Management</CardTitle>
-              <CardDescription>
-                Configure how shipment data is managed
-              </CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <div className='grid gap-4 sm:grid-cols-2'>
-                <div className='space-y-2'>
-                  <Label htmlFor='auto_archive_days'>
-                    Auto-Archive After (days)
-                  </Label>
-                  <Input
-                    id='auto_archive_days'
-                    type='number'
-                    min='30'
-                    max='365'
-                    value={settings?.auto_archive_days || ''}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        auto_archive_days: parseInt(e.target.value),
-                      })
-                    }
-                  />
-                  <p className='text-xs text-muted-foreground'>
-                    Automatically archive old shipments
-                  </p>
-                </div>
-                <div className='space-y-2'>
-                  <Label htmlFor='data_retention_days'>
-                    Data Retention (days)
-                  </Label>
-                  <Input
-                    id='data_retention_days'
-                    type='number'
-                    min='90'
-                    max='3650'
-                    value={settings?.data_retention_days || ''}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        data_retention_days: parseInt(e.target.value),
-                      })
-                    }
-                  />
-                  <p className='text-xs text-muted-foreground'>
-                    Delete data after this period
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Export Settings</CardTitle>
-              <CardDescription>Configure default export format</CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <div className='space-y-2'>
-                <Label htmlFor='export_format'>Default Export Format</Label>
-                <Select
-                  value={settings?.export_format}
-                  onValueChange={(value) =>
-                    setSettings({ ...settings, export_format: value })
-                  }>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value='csv'>CSV</SelectItem>
-                    <SelectItem value='excel'>Excel (XLSX)</SelectItem>
-                    <SelectItem value='pdf'>PDF</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Developer Settings */}
-        <TabsContent value='developer' className='space-y-4'>
-          <Card>
-            <CardHeader>
-              <CardTitle>Mock Data Settings</CardTitle>
-              <CardDescription>
-                Configure mock data for development and testing
-              </CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-6'>
-              <div className='flex items-center justify-between'>
-                <div className='space-y-0.5'>
-                  <Label>Use Mock Data for Analytics</Label>
-                  <p className='text-sm text-muted-foreground'>
-                    Display generated mock data instead of real data in all
-                    analytics charts
-                  </p>
-                </div>
-                <Switch
-                  checked={useMockData}
-                  onCheckedChange={(checked) => {
-                    setUseMockData(checked);
-                    localStorage.setItem('use-mock-data', String(checked));
-                    toast.success(
-                      checked
-                        ? 'Mock data enabled - Refresh analytics pages to see changes'
-                        : 'Real data enabled - Refresh analytics pages to see changes',
-                    );
-                  }}
-                />
-              </div>
-              <Separator />
-              <div className='rounded-lg border border-border/50 bg-muted/20 p-4'>
-                <div className='flex items-start gap-3'>
-                  <AlertCircle className='h-5 w-5 text-muted-foreground mt-0.5' />
-                  <div className='space-y-1'>
-                    <p className='text-sm font-medium'>Development Feature</p>
-                    <p className='text-xs text-muted-foreground'>
-                      This setting is useful for testing the UI with realistic
-                      data patterns when you don't have enough real data yet.
-                      Mock data includes:
-                    </p>
-                    <ul className='text-xs text-muted-foreground list-disc list-inside space-y-0.5 mt-2'>
-                      <li>Shipment trends (total, delivered, exceptions)</li>
-                      <li>User growth and activity metrics</li>
-                      <li>Lead conversion analytics</li>
-                      <li>
-                        Realistic patterns with weekday/weekend variations
-                      </li>
-                    </ul>
+            {/* Email Service Status */}
+            <Card>
+              <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+                <CardTitle className='text-sm font-medium'>
+                  Email Service
+                </CardTitle>
+                <Activity className='h-4 w-4 text-muted-foreground' />
+              </CardHeader>
+              <CardContent>
+                <div className='flex items-center gap-2'>
+                  {systemStatus?.email?.status === 'ok' ? (
+                    <CheckCircle className='h-5 w-5 text-green-500' />
+                  ) : systemStatus?.email?.status === 'warning' ? (
+                    <AlertTriangle className='h-5 w-5 text-yellow-500' />
+                  ) : (
+                    <XCircle className='h-5 w-5 text-red-500' />
+                  )}
+                  <div className='text-2xl font-bold'>
+                    {systemStatus?.email?.status === 'ok'
+                      ? 'Operational'
+                      : systemStatus?.email?.status === 'warning'
+                        ? 'Warning'
+                        : 'Offline'}
                   </div>
                 </div>
-              </div>
-              {useMockData && (
-                <div className='rounded-lg border border-amber-500/50 bg-amber-500/10 p-4'>
-                  <div className='flex items-start gap-3'>
-                    <CheckCircle2 className='h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5' />
-                    <div className='space-y-1'>
-                      <p className='text-sm font-medium text-amber-900 dark:text-amber-100'>
-                        Mock Data Active
-                      </p>
-                      <p className='text-xs text-amber-800 dark:text-amber-200'>
-                        All analytics pages are currently showing generated mock
-                        data. Navigate to any analytics page and refresh to see
-                        the mock data in action.
-                      </p>
-                    </div>
+                <p className='text-xs text-muted-foreground mt-1'>
+                  {systemStatus?.email?.message || 'Checking...'}
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Tracking API Status */}
+            <Card>
+              <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+                <CardTitle className='text-sm font-medium'>
+                  Tracking API
+                </CardTitle>
+                <Activity className='h-4 w-4 text-muted-foreground' />
+              </CardHeader>
+              <CardContent>
+                <div className='flex items-center gap-2'>
+                  {systemStatus?.tracking?.status === 'ok' ? (
+                    <CheckCircle className='h-5 w-5 text-green-500' />
+                  ) : (
+                    <XCircle className='h-5 w-5 text-red-500' />
+                  )}
+                  <div className='text-2xl font-bold'>
+                    {systemStatus?.tracking?.status === 'ok'
+                      ? 'Configured'
+                      : 'Missing Key'}
                   </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+                <p className='text-xs text-muted-foreground mt-1'>
+                  {systemStatus?.tracking?.message || 'Checking...'}
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Environment Status */}
+            <Card>
+              <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+                <CardTitle className='text-sm font-medium'>
+                  Environment
+                </CardTitle>
+                <Activity className='h-4 w-4 text-muted-foreground' />
+              </CardHeader>
+              <CardContent>
+                <div className='flex items-center gap-2'>
+                  {systemStatus?.env?.status === 'ok' ? (
+                    <CheckCircle className='h-5 w-5 text-green-500' />
+                  ) : (
+                    <XCircle className='h-5 w-5 text-red-500' />
+                  )}
+                  <div className='text-2xl font-bold'>
+                    {systemStatus?.env?.status === 'ok' ? 'Loaded' : 'Error'}
+                  </div>
+                </div>
+                <p className='text-xs text-muted-foreground mt-1'>
+                  Server Environment Variables
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { render } from '@react-email/render';
 import nodemailer from 'nodemailer';
 import QRCode from 'qrcode';
+import { SendMailClient } from 'zeptomail';
 import ShipmentNotificationEmail from '@/emails/shipment-notification';
 
 interface SendEmailParams {
@@ -64,6 +65,10 @@ export class EmailService {
     const { shipmentId, tenantId, status, recipientEmail, recipientName } =
       params;
 
+    let emailConfig: any = null;
+    let subject = '';
+    let emailHtml = '';
+
     try {
       // 1. Check for duplicate (database-level protection)
       const isDuplicate = await this.checkDuplicate(
@@ -72,16 +77,12 @@ export class EmailService {
         status,
       );
       if (isDuplicate) {
-        console.log(
-          `✅ Email already sent for shipment ${shipmentId} status ${status}`,
-        );
         return { success: true, message: 'Already sent (duplicate prevented)' };
       }
 
-      // 2. Check rate limit (tenant-aware)
+      // 2. Check rate limit
       const isRateLimited = await this.checkRateLimit(tenantId);
       if (isRateLimited) {
-        console.warn(`⚠️ Rate limit exceeded for tenant ${tenantId}`);
         await this.logAttempt({
           ...params,
           status: 'failed',
@@ -90,10 +91,9 @@ export class EmailService {
         return { success: false, message: 'Rate limit exceeded' };
       }
 
-      // 3. Get tenant email configuration (including settings & templates)
-      const emailConfig = await this.getTenantEmailConfig(tenantId, status);
+      // 3. Get configuration
+      emailConfig = await this.getTenantEmailConfig(tenantId, status);
       if (!emailConfig) {
-        console.error(`❌ No email config for tenant ${tenantId}`);
         await this.logAttempt({
           ...params,
           status: 'failed',
@@ -102,11 +102,11 @@ export class EmailService {
         return { success: false, message: 'No email configuration' };
       }
 
-      // 4. Generate QR code
+      // 4. Generate QR
       const trackingUrl = `${emailConfig.config.tracking_url}/track/${params.referenceCode}`;
       const qrCodeDataUrl = await this.generateQRCode(trackingUrl);
 
-      // Prepare template variables for substitution
+      // Prepare vars
       const templateVars = {
         recipient_name: recipientName,
         tracking_number: params.trackingCode,
@@ -115,7 +115,6 @@ export class EmailService {
         company_name: emailConfig.config.company_name,
       };
 
-      // Resolve custom text from template if available
       const customHeading = emailConfig.template?.heading_template
         ? this.replaceVariables(
             emailConfig.template.heading_template,
@@ -133,10 +132,10 @@ export class EmailService {
       const subjectTemplate =
         emailConfig.template?.subject_template ||
         this.getDefaultSubject(status);
-      const subject = this.replaceVariables(subjectTemplate, templateVars);
+      subject = this.replaceVariables(subjectTemplate, templateVars);
 
-      // 5. Render email using React Email
-      const emailHtml = await render(
+      // 5. Render
+      emailHtml = await render(
         ShipmentNotificationEmail({
           recipientName,
           status,
@@ -157,26 +156,8 @@ export class EmailService {
       const isDryRun = process.env.EMAIL_DRY_RUN === 'true';
 
       if (isDryRun) {
-        // 6. Console log email instead of sending (for debugging)
-        console.log('📧 ============ EMAIL PREVIEW (DRY RUN) ============');
-        console.log('To:', recipientEmail, `(${recipientName})`);
-        console.log('Subject:', subject);
-        console.log('Provider:', emailConfig.provider_id);
-        console.log('From:', emailConfig.config.from_email);
-        console.log('Company:', emailConfig.config.company_name);
-        console.log('Status:', status);
-        console.log('Tracking URL:', trackingUrl);
-        console.log(
-          'Invoice:',
-          params.invoiceAmount
-            ? `${params.invoiceCurrency} ${params.invoiceAmount}`
-            : 'N/A',
-        );
-        console.log('HTML Length:', emailHtml.length, 'characters');
-        console.log('QR Code:', qrCodeDataUrl ? 'Generated ✅' : 'N/A');
-        console.log('========================================');
+        console.log('📧 [DRY RUN] Email ready for:', recipientEmail);
       } else {
-        // 6. Actually send emails
         if (emailConfig.provider_id === 'zeptomail') {
           await this.sendViaZeptoMail(
             emailConfig,
@@ -184,7 +165,7 @@ export class EmailService {
             recipientName,
             subject,
             emailHtml,
-            params.referenceCode // Pass reference code
+            params.referenceCode,
           );
         } else if (emailConfig.provider_id === 'smtp') {
           await this.sendViaSMTP(
@@ -197,7 +178,6 @@ export class EmailService {
         }
       }
 
-      // 7. Log success
       const logId = await this.logAttempt({
         ...params,
         status: 'sent',
@@ -205,58 +185,49 @@ export class EmailService {
         body: emailHtml,
       });
 
-      console.log(`✅ Email sent successfully to ${recipientEmail}`);
+      console.log(`✅ Email sent to ${recipientEmail}`);
       return { success: true, message: 'Email sent', logId };
-      }
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Email sending failed:', error);
-      
-      // FALLBACK LOGIC: If ZeptoMail failed, try SMTP
-      if (emailConfig.provider_id === 'zeptomail') {
-          console.log('🔄 Attempting fallback to SMTP...');
-          const smtpConfig = await this.getFallbackSMTPConfig(tenantId, status);
-          if (smtpConfig) {
-             // Merge with original config for shared properties like logo/templates if they were missing or just use smtpConfig fully
-             // Actually, we need to preserve templates/logos from original logic or re-fetch properly.
-             // getFallbackSMTPConfig handles fetching.
-             try {
-                await this.sendViaSMTP(
-                    smtpConfig,
-                    recipientEmail,
-                    recipientName,
-                    subject,
-                    emailHtml
-                );
-                console.log(`✅ Fallback Email sent successfully to ${recipientEmail}`);
-                
-                 // Log success (fallback)
-                const logId = await this.logAttempt({
-                    ...params,
-                    status: 'sent',
-                    subject,
-                    body: emailHtml,
-                    errorMessage: `ZeptoMail failed, used SMTP fallback. Original error: ${error instanceof Error ? error.message : 'Unknown'}`
-                });
-                return { success: true, message: 'Email sent (via Fallback)', logId };
-             } catch (fallbackError) {
-                 console.error('❌ Fallback SMTP also failed:', fallbackError);
-             }
-          } else {
-              console.warn('⚠️ No SMTP fallback configuration found.');
+
+      // FALLBACK
+      if (emailConfig && emailConfig.provider_id === 'zeptomail') {
+        console.log('🔄 Attempting SMTP Fallback...');
+        const smtpConfig = await this.getFallbackSMTPConfig(tenantId, status);
+        if (smtpConfig) {
+          try {
+            await this.sendViaSMTP(
+              smtpConfig,
+              recipientEmail,
+              recipientName,
+              subject,
+              emailHtml,
+            );
+            console.log('✅ Fallback SMTP sent successfully.');
+
+            const logId = await this.logAttempt({
+              ...params,
+              status: 'sent',
+              subject,
+              body: emailHtml,
+              errorMessage: `ZeptoMail failed: ${error.message}. Used SMTP fallback.`,
+            });
+            return { success: true, message: 'Email sent (Fallback)', logId };
+          } catch (fbError) {
+            console.error('❌ Fallback failed:', fbError);
           }
+        }
       }
 
-      // Log failure (final)
       await this.logAttempt({
         ...params,
         status: 'failed',
-        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        subject, // Now accessible
+        body: emailHtml, // Now accessible
+        errorMessage: error.message,
       });
 
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : 'Unknown error',
-      };
+      return { success: false, message: error.message };
     }
   }
 
@@ -409,7 +380,8 @@ export class EmailService {
 
     let templateType = 'shipment_status';
     if (status === 'delivered') templateType = 'shipment_delivered';
-    if (status === 'exception' || status === 'failed') templateType = 'shipment_exception';
+    if (status === 'exception' || status === 'failed')
+      templateType = 'shipment_exception';
 
     const templatePromise = this.supabase
       .from('email_templates')
@@ -457,7 +429,7 @@ export class EmailService {
   }
 
   /**
-   * Send email via ZeptoMail
+   * Send email via ZeptoMail (Official SDK)
    */
   private async sendViaZeptoMail(
     config: EmailConfig,
@@ -467,13 +439,18 @@ export class EmailService {
     html: string,
     clientReference?: string,
   ): Promise<void> {
-    const response = await fetch('https://api.zeptomail.com/v1.1/email', {
-      method: 'POST',
-      headers: {
-        Authorization: config.credentials.api_key!,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    const url = 'https://api.zeptomail.in/v1.1/email';
+
+    // Ensure token has ZeptoMail prefix if not already present
+    let token = config.credentials.api_key || '';
+    if (!token.startsWith('Zoho-enczapikey')) {
+      token = `Zoho-enczapikey ${token}`;
+    }
+
+    const client = new SendMailClient({ url, token });
+
+    try {
+      await client.sendMail({
         from: {
           address: config.config.from_email,
           name: config.config.from_name,
@@ -486,17 +463,15 @@ export class EmailService {
             },
           },
         ],
-        subject,
+        subject: subject,
         htmlbody: html,
         track_clicks: true,
         track_opens: true,
         client_reference: clientReference,
-      }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`ZeptoMail error: ${JSON.stringify(error)}`);
+      });
+    } catch (err) {
+      // The SDK might return an error object, stringify it for clarity
+      throw new Error(JSON.stringify(err));
     }
   }
 

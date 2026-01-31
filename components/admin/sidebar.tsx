@@ -23,6 +23,7 @@ import {
   FileText,
   List,
 } from 'lucide-react';
+import { sidebarGroups } from '@/lib/config/navigation';
 import { Button } from '@/components/ui/button';
 
 import {
@@ -50,125 +51,10 @@ import { createClient } from '@/lib/supabase/client';
 import { LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-interface NavigationItem {
-  title: string;
-  href: string;
-  icon: any;
-  children?: {
-    title: string;
-    href: string;
-    icon?: any;
-  }[];
-  badge?: boolean | string | number; // New: Badge support
-}
-
-interface SidebarGroup {
-  label?: string;
-  items: NavigationItem[];
-}
-
 interface SidebarProps {
   isCollapsed: boolean;
   onToggle: () => void;
 }
-
-const sidebarGroups: SidebarGroup[] = [
-  {
-    label: 'Main',
-    items: [
-      {
-        title: 'Dashboard',
-        href: '/dashboard',
-        icon: LayoutDashboard,
-      },
-      {
-        title: 'Shipments',
-        href: '/shipments',
-        icon: Truck,
-      },
-      {
-        title: 'Leads',
-        href: '/leads',
-        icon: ShoppingBag,
-      },
-      {
-        title: 'Users',
-        href: '/users',
-        icon: Users,
-      },
-    ],
-  },
-  {
-    label: 'Analytics',
-    items: [
-      {
-        title: 'Analytics',
-        href: '/shipments/analytics', // Keeping this as base/overview or moving it? User said "move under analytics menu". Structure implies /analytics
-        icon: BarChart3,
-        children: [
-          {
-            title: 'Shipment Analytics',
-            href: '/shipments/analytics', // Reusing shipment analytics as main overview for now, or we could redirect /analytics to here
-            icon: Activity,
-          },
-          {
-            title: 'Leads',
-            href: '/analytics/leads',
-            icon: Target,
-          },
-          {
-            title: 'Users',
-            href: '/analytics/users',
-            icon: Users,
-          },
-        ],
-      },
-    ],
-  },
-  {
-    label: 'Communication',
-    items: [
-      {
-        title: 'Notifications',
-        href: '/notifications',
-        icon: Bell,
-        badge: true, // Enable dynamic badge
-        children: [
-          {
-            title: 'Overview',
-            href: '/notifications',
-            icon: LayoutDashboard,
-          },
-          {
-            title: 'Email Setup',
-            href: '/notifications/email-setup',
-            icon: Mail,
-          },
-          {
-            title: 'Logs',
-            href: '/notifications/logs',
-            icon: FileText,
-          },
-          {
-            title: 'Settings',
-            href: '/notifications/settings',
-            icon: Settings,
-          },
-        ],
-      },
-    ],
-  },
-  {
-    label: 'System',
-    items: [
-      {
-        title: 'Settings',
-        href: '/settings',
-        icon: Settings,
-      },
-    ],
-  },
-];
 
 export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();

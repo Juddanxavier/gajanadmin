@@ -3,7 +3,7 @@
 'use client';
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { useCallback } from 'react';
+import { useCallback, useTransition } from 'react';
 import { ShipmentDataTable } from './data-table';
 import { columns, ShipmentDisplay } from './columns';
 import { ShipmentTableFilters, Tenant } from '@/lib/types';
@@ -27,10 +27,11 @@ export function ShipmentTableClient({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
 
   // Helper to update URL params
   const createQueryString = useCallback(
-    (params: Record<string, string | number | null | undefined>) => {
+    (params: Record<string, string | number | boolean | null | undefined>) => {
       const newSearchParams = new URLSearchParams(searchParams?.toString());
 
       Object.entries(params).forEach(([key, value]) => {
@@ -64,12 +65,14 @@ export function ShipmentTableClient({
       nextState = updater;
     }
 
-    router.push(
-      `${pathname}?${createQueryString({
-        page: nextState.pageIndex + 1,
-        limit: nextState.pageSize,
-      })}`,
-    );
+    startTransition(() => {
+      router.push(
+        `${pathname}?${createQueryString({
+          page: nextState.pageIndex + 1,
+          limit: nextState.pageSize,
+        })}`,
+      );
+    });
   };
 
   const onSortingChange = (
@@ -87,34 +90,41 @@ export function ShipmentTableClient({
       nextState = updater;
     }
 
-    if (nextState.length > 0) {
-      const { id, desc } = nextState[0];
-      router.push(
-        `${pathname}?${createQueryString({
-          sort: `${id}.${desc ? 'desc' : 'asc'}`,
-        })}`,
-      );
-    } else {
-      // Clear sort
-      router.push(`${pathname}?${createQueryString({ sort: null })}`);
-    }
+    startTransition(() => {
+      if (nextState.length > 0) {
+        const { id, desc } = nextState[0];
+        router.push(
+          `${pathname}?${createQueryString({
+            sort: `${id}.${desc ? 'desc' : 'asc'}`,
+          })}`,
+        );
+      } else {
+        // Clear sort
+        router.push(`${pathname}?${createQueryString({ sort: null })}`);
+      }
+    });
   };
 
   const onFiltersChange = (newFilters: ShipmentTableFilters) => {
-    // Reset page to 1 when filters change
-    router.push(
-      `${pathname}?${createQueryString({
-        page: 1,
-        status: newFilters.status,
-        tenant: newFilters.tenant,
-        search: newFilters.search,
-        provider: newFilters.provider,
-      })}`,
-    );
+    startTransition(() => {
+      // Reset page to 1 when filters change
+      router.push(
+        `${pathname}?${createQueryString({
+          page: 1,
+          status: newFilters.status,
+          tenant: newFilters.tenant,
+          search: newFilters.search,
+          provider: newFilters.provider,
+          archived: newFilters.archived,
+        })}`,
+      );
+    });
   };
 
   const handleRefresh = () => {
-    router.refresh();
+    startTransition(() => {
+      router.refresh();
+    });
   };
 
   return (
@@ -132,7 +142,7 @@ export function ShipmentTableClient({
       onSortingChange={onSortingChange}
       filters={currentFilters}
       onFiltersChange={onFiltersChange}
-      isLoading={false} // Loading handled by Suspense in parent
+      isLoading={isPending} // Pass transition state as loading
       onRefresh={handleRefresh}
       onAddNew={() => {}} // TODO: Pass dialog opener or handle separate route
       tenants={tenants}

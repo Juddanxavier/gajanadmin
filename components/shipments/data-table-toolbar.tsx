@@ -48,17 +48,60 @@ export function DataTableToolbar({
   const isFiltered =
     !!searchValue ||
     (filters.status && filters.status !== 'all') ||
-    (filters.tenant && filters.tenant !== 'all');
+    (filters.tenant && filters.tenant !== 'all') ||
+    (filters.provider && filters.provider !== 'all');
 
   return (
     <div className='flex items-center justify-between p-4'>
-      <div className='flex flex-1 items-center space-x-2'>
+      <div className='flex flex-1 items-center space-x-2 overflow-auto p-1'>
         <Input
           placeholder='Search tracking number...'
           value={searchValue}
           onChange={(event) => setSearchValue(event.target.value)}
           className='h-8 w-[150px] lg:w-[250px]'
         />
+
+        {/* Status Filter */}
+        <Select
+          value={filters.status || 'all'}
+          onValueChange={(value) =>
+            onFiltersChange({
+              ...filters,
+              status: value === 'all' ? undefined : value,
+            })
+          }>
+          <SelectTrigger className='h-8 w-[130px]'>
+            <SelectValue placeholder='Status' />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value='all'>All Statuses</SelectItem>
+            <SelectItem value='pending'>Pending</SelectItem>
+            <SelectItem value='in_transit'>In Transit</SelectItem>
+            <SelectItem value='delivered'>Delivered</SelectItem>
+            <SelectItem value='exception'>Exception</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Provider Filter */}
+        <Select
+          value={filters.provider || 'all'}
+          onValueChange={(value) =>
+            onFiltersChange({
+              ...filters,
+              provider: value === 'all' ? undefined : value,
+            })
+          }>
+          <SelectTrigger className='h-8 w-[130px]'>
+            <SelectValue placeholder='Provider' />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value='all'>All Providers</SelectItem>
+            <SelectItem value='dhl'>DHL</SelectItem>
+            <SelectItem value='fedex'>FedEx</SelectItem>
+            <SelectItem value='ups'>UPS</SelectItem>
+            <SelectItem value='bluedart'>BlueDart</SelectItem>
+          </SelectContent>
+        </Select>
 
         {/* Tenant Filter */}
         {tenants.length > 0 && (
@@ -98,6 +141,7 @@ export function DataTableToolbar({
                 search: undefined,
                 status: undefined,
                 tenant: undefined,
+                provider: undefined,
               })
             }
             className='h-8 px-2 lg:px-3'>

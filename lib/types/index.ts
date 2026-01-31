@@ -211,6 +211,7 @@ export interface ShipmentTableFilters {
   status?: string;
   provider?: string;
   tenant?: string;
+  archived?: boolean | 'all';
   dateFrom?: Date;
   dateTo?: Date;
 }
