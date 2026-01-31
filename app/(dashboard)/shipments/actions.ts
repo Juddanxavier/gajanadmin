@@ -6,12 +6,9 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ShipmentService } from '@/lib/services/shipment-service';
 import { NotificationService } from '@/lib/services/notification-service';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, unstable_cache } from 'next/cache';
 import { z } from 'zod';
-import type {
-  getUserTenantIds,
-  ensureStaffAccess,
-} from '@/lib/utils/permissions';
+import { getUserTenantIds, ensureStaffAccess } from '@/lib/utils/permissions';
 import { ShipmentTableFilters } from '@/lib/types';
 import { cookies } from 'next/headers';
 import {
