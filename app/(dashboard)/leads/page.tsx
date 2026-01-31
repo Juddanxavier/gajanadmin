@@ -4,6 +4,8 @@ import { getLeads } from '@/app/(dashboard)/leads/actions';
 import { getTenants } from '@/app/(dashboard)/users/actions';
 import { LeadsClient } from './leads-client';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'Leads Management',
   description: 'Manage customer leads and shipments',

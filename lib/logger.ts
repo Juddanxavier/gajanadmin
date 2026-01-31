@@ -49,7 +49,9 @@ class Logger {
         ['error', 'warn', 'info', 'debug'].includes(level) ? level : 'log'
       ) as keyof Console;
       // Safety check if method exists (e.g. debug might not in some envs)
-      const safeLog = (console[logMethod] || console.log).bind(console);
+      const safeLog = ((console[logMethod] || console.log) as Function).bind(
+        console,
+      );
 
       if (errorContext) {
         safeLog(logMsg);
@@ -63,7 +65,9 @@ class Logger {
       const logMethod = (
         ['error', 'warn', 'info'].includes(level) ? level : 'log'
       ) as keyof Console;
-      const safeLog = (console[logMethod] || console.log).bind(console);
+      const safeLog = ((console[logMethod] || console.log) as Function).bind(
+        console,
+      );
       safeLog(JSON.stringify(entry));
     }
   }

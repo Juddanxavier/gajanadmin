@@ -1,6 +1,13 @@
 /** @format */
 
 import { SupabaseClient } from '@supabase/supabase-js';
+import { NotificationService } from './notification-service';
+
+// ...
+
+// 4. Trigger Notification (Async - do not block)
+// const notificationService = new NotificationService(this.client);
+// await notificationService.sendNotifications({...});
 import {
   CreateShipmentParams,
   ShipmentProvider,
@@ -178,7 +185,23 @@ export class ShipmentService {
       await this.saveEvents(shipment.id, trackingResult.checkpoints);
     }
 
-    // Notification trigger removed
+    // 4. Trigger Notification (Async - do not block)
+    const notificationService = new NotificationService(this.client);
+    // don't await strictly to keep response fast, or await if critical?
+    // User wants queue basically, but we await to log it.
+    await notificationService.sendNotifications({
+      shipmentId: shipment.id,
+      tenantId: shipment.tenant_id,
+      status: shipment.status,
+      recipientEmail: shipment.customer_details?.email,
+      recipientPhone: shipment.customer_details?.phone,
+      recipientName: shipment.customer_details?.name,
+      trackingCode: shipment.carrier_tracking_code,
+      referenceCode: shipment.white_label_code,
+      location: shipment.latest_location,
+      updatedAt: shipment.updated_at,
+      carrier: shipment.carrier_id,
+    });
 
     return shipment;
   }
@@ -647,7 +670,30 @@ export class ShipmentService {
 
     await this.saveEvents(shipmentId, result.checkpoints);
 
-    // Notification trigger removed
+    // 4. Trigger Notification for Update
+    // We need customer details to send notification
+    const { data: shipment } = await this.client
+      .from('shipments')
+      .select('*')
+      .eq('id', shipmentId)
+      .single();
+
+    if (shipment) {
+      const notificationService = new NotificationService(this.client);
+      await notificationService.sendNotifications({
+        shipmentId: shipment.id,
+        tenantId: shipment.tenant_id,
+        status: result.status, // Use the NEW status from result
+        recipientEmail: shipment.customer_details?.email,
+        recipientPhone: shipment.customer_details?.phone,
+        recipientName: shipment.customer_details?.name,
+        trackingCode: result.tracking_number || shipment.carrier_tracking_code,
+        referenceCode: shipment.white_label_code,
+        location: result.latest_location,
+        updatedAt: new Date().toISOString(),
+        carrier: result.carrier_code || shipment.carrier_id,
+      });
+    }
   }
 
   private async saveEvents(shipmentId: string, checkpoints: any[]) {

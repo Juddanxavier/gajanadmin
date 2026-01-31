@@ -117,7 +117,7 @@ export function InviteLinkDialog({
         setEmailSent(true);
         toast({
           title: 'Success',
-          description: result.data.message,
+          description: 'Invitation sent successfully',
         });
       } else {
         toast({
@@ -156,7 +156,7 @@ export function InviteLinkDialog({
       );
 
       if (result.success && result.data) {
-        setInviteLink(result.data.link);
+        setInviteLink(result.data);
         toast({
           title: 'Success',
           description: 'Invite link generated successfully',

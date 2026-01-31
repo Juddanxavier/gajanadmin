@@ -12,7 +12,14 @@ interface SendWhatsAppParams {
   status: string;
   message?: string;
   templateParams?: Record<string, string>;
+  location?: string;
+  updatedAt?: string;
+  tenantName?: string;
+  carrier?: string;
+  trackingUrl?: string; // Optional override, otherwise generated
 }
+
+// ... (code omitted for brevity if interfaces are separate)
 
 interface WhatsAppConfig {
   provider_id: string;
@@ -25,6 +32,7 @@ interface WhatsAppConfig {
   config: {
     sender_id?: string; // MSG91
     from_number?: string; // Twilio
+    tracking_url?: string;
   };
   is_active: boolean;
 }
@@ -131,14 +139,42 @@ export class WhatsAppService {
   }
 
   /**
-   * Generic/Console Sender
+   * Generic/Console Sender (Formatted Template)
    */
   private async sendViaGenericMock(
     config: WhatsAppConfig,
     params: SendWhatsAppParams,
   ) {
-    console.log('📱 [WHATSAPP-MOCK] Sending to ' + params.recipientPhone);
-    return { success: true, message: 'Mock WhatsApp sent' };
+    // Generate tracking URL (Mock or real if config exists)
+    // Note: In real scenarios, use reference_code for public tracking, but here we use trackingCode or need to pass it.
+    const trackingUrl = `https://${config.config.sender_id || 'track.gajan.com'}/track/${params.trackingCode}`;
+
+    const date = params.updatedAt
+      ? new Date(params.updatedAt).toLocaleString()
+      : new Date().toLocaleString();
+    const formattedStatus = params.status.replace(/_/g, ' ').toUpperCase();
+
+    const message = `Hello ${params.recipientName},
+
+📦 Your shipment *${params.trackingCode}* is now *${formattedStatus}*.
+
+📍 Location: ${params.location || 'Unknown'}
+🕒 Updated: ${date}
+
+Track here: ${trackingUrl}
+
+— ${params.tenantName || 'Gajan Logistics'}`;
+
+    console.log(
+      '\n📱 [WHATSAPP-MOCK] ----------------------------------------',
+    );
+    console.log(`To: ${params.recipientPhone}`);
+    console.log(`Body:\n${message}`);
+    console.log(
+      '-----------------------------------------------------------\n',
+    );
+
+    return { success: true, message: 'Mock WhatsApp sent (Template Applied)' };
   }
 
   /**

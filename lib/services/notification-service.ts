@@ -16,6 +16,11 @@ export interface NotificationPayload {
   invoiceAmount?: number;
   invoiceCurrency?: string;
   deliveryDate?: string;
+  // Extended fields for WhatsApp/Templates
+  location?: string;
+  updatedAt?: string;
+  tenantName?: string;
+  carrier?: string;
 }
 
 export type NotificationResult = {
@@ -78,7 +83,6 @@ export class NotificationService {
       console.log(
         `[NotificationService] Dispatching WhatsApp for ${payload.trackingCode}`,
       );
-
       try {
         const res = await this.whatsappService.sendShipmentNotification({
           shipmentId: payload.shipmentId,
@@ -87,26 +91,17 @@ export class NotificationService {
           recipientName: payload.recipientName || 'Customer',
           trackingCode: payload.trackingCode,
           status: payload.status,
+          location: payload.location,
+          updatedAt: payload.updatedAt,
+          tenantName: payload.tenantName,
+          carrier: payload.carrier,
         });
         results.whatsapp = { success: res.success, message: res.message };
       } catch (error: any) {
         console.error('[NotificationService] WhatsApp Failed:', error);
         results.whatsapp = { success: false, error: error.message };
       }
-    } else {
-      results.whatsapp = {
-        success: false,
-        skipped: true,
-        message: 'No phone provided',
-      };
     }
-
-    // 3. SMS (Deprecated/Removed)
-    results.sms = {
-      success: false,
-      skipped: true,
-      message: 'SMS channel deprecated in favor of WhatsApp',
-    };
 
     return results;
   }

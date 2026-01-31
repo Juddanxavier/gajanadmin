@@ -5,10 +5,10 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ShipmentService } from '@/lib/services/shipment-service';
-import { revalidatePath, unstable_cache } from 'next/cache';
-import {
-  hasRole,
-  isAdmin,
+import { NotificationService } from '@/lib/services/notification-service';
+import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
+import type {
   getUserTenantIds,
   ensureStaffAccess,
 } from '@/lib/utils/permissions';
@@ -19,6 +19,7 @@ import {
   successResponse,
   errorResponse,
 } from '@/lib/api-response';
+import { isAdmin, hasRole } from '@/lib/utils/permissions'; // Keep these if used as values
 
 // Types
 export interface GetShipmentsParams {
@@ -391,9 +392,52 @@ export async function sendShipmentNotificationAction(
   shipmentId: string,
 ): Promise<ActionResponse<any>> {
   try {
+    const { isUserAdmin } = await ensureStaffAccess();
+    const service = new ShipmentService(createAdminClient());
+
+    // We need to fetch the shipment first to get details
+    // Currently ShipmentService doesn't have a simple getById that returns everything needed for notification?
+    // Actually getShipments returns arrays.
+    // Let's use internal client in ShipmentService or just use Supabase direct for specific fetch if needed.
+    // Or add getShipmentById to Service?
+    // Existing code often uses getShipments with filters.
+
+    const adminClient = createAdminClient();
+    const { data: shipment, error } = await adminClient
+      .from('shipments')
+      .select(
+        `
+            *,
+            carrier:carriers(name_en, name_cn)
+        `,
+      )
+      .eq('id', shipmentId)
+      .single();
+
+    if (error || !shipment) {
+      return errorResponse({ message: 'Shipment not found' });
+    }
+
+    const notificationService = new NotificationService(adminClient);
+    const result = await notificationService.sendNotifications({
+      shipmentId: shipment.id,
+      tenantId: shipment.tenant_id,
+      status: shipment.status,
+      recipientEmail: shipment.customer_details?.email,
+      recipientPhone: shipment.customer_details?.phone,
+      recipientName: shipment.customer_details?.name,
+      trackingCode: shipment.carrier_tracking_code,
+      referenceCode: shipment.white_label_code,
+      location: shipment.latest_location,
+      updatedAt: new Date().toISOString(), // Use current time for manual trigger
+      carrier: shipment.carrier?.name_en || shipment.carrier_id,
+      tenantName: 'Gajan Logistics', // TODO: Fetch tenant name if dynamic
+    });
+
     return successResponse({
-      sent: false,
-      message: 'Notifications are disabled',
+      sent: true,
+      results: result,
+      message: 'Notification trigger output: ' + JSON.stringify(result),
     });
   } catch (error: any) {
     return errorResponse(error);

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { render } from '@react-email/render';
 import nodemailer from 'nodemailer';
 import QRCode from 'qrcode';
+// @ts-ignore
 import { SendMailClient } from 'zeptomail';
 import ShipmentNotificationEmail from '@/emails/shipment-notification';
 
