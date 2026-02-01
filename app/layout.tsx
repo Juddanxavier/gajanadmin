@@ -14,8 +14,8 @@ const defaultUrl = process.env.VERCEL_URL
 export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
   title: {
-    default: 'Gajan Admin',
-    template: '%s | Gajan Admin',
+    default: 'GT Express',
+    template: '%s | GT Express',
   },
   description: 'Internal Shipment Management Portal',
   robots: {

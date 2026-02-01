@@ -69,8 +69,8 @@ export function UserStatsCards({ stats, trendData = [] }: UserStatsCardsProps) {
     },
     {
       title: 'Admins',
-      value: stats.byRole.admin.toString(),
-      description: `${stats.byRole.staff} staff, ${stats.byRole.customer} customers`,
+      value: (stats.byRole.admin || 0).toString(),
+      description: `${stats.byRole.staff || 0} staff, ${stats.byRole.customer || 0} customers`,
       icon: <Shield className='h-4 w-4' />,
       color: colors[2],
       chartConfig: { admins: { label: 'Admins', color: chartColors[2] } },
@@ -78,7 +78,7 @@ export function UserStatsCards({ stats, trendData = [] }: UserStatsCardsProps) {
     },
     {
       title: 'By Tenant',
-      value: Object.keys(stats.byTenant).length.toString(),
+      value: Object.keys(stats.byTenant || {}).length.toString(),
       description: 'Active tenants',
       icon: <Building2 className='h-4 w-4' />,
       color: colors[3],

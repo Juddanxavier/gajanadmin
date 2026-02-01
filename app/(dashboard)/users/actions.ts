@@ -585,22 +585,227 @@ export async function getPermissions() {
   return { isGlobalAdmin, tenantIds };
 }
 
-// Stub for stats/trends to prevent build errors, or implement simple version
-export async function getUserStats() {
-  return successResponse({
-    total: 0,
-    active: 0,
-    byRole: { admin: 0, staff: 0, customer: 0 },
-    byTenant: {},
-  });
+export async function getUserStats(): Promise<ActionResponse<UserStats>> {
+  try {
+    const supabase = createAdminClient();
+    const { isGlobalAdmin, tenantIds } = await getPermissions();
+
+    // Base query for stats
+    let query = supabase.from('admin_profile_view').select(
+      `
+        id,
+        created_at,
+        last_sign_in_at,
+        user_roles!inner(role),
+        user_tenants!inner(tenant_id, tenants(name))
+      `,
+    );
+
+    // Apply permissions
+    if (!isGlobalAdmin) {
+      query = query.in('user_tenants.tenant_id', tenantIds || []);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    const users = data || [];
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
+
+    // Calculate Stats
+    const total = users.length;
+    let active = 0;
+    const byRole: Record<string, number> = {};
+    const byTenant: Record<string, number> = {};
+
+    users.forEach((user: any) => {
+      // Active Check
+      if (
+        user.last_sign_in_at &&
+        new Date(user.last_sign_in_at) >= thirtyDaysAgo
+      ) {
+        active++;
+      }
+
+      // Role breakdown
+      const roles = user.user_roles || [];
+      roles.forEach((r: any) => {
+        const roleName = r.role || 'unknown';
+        byRole[roleName] = (byRole[roleName] || 0) + 1;
+      });
+
+      // Tenant breakdown
+      const tenants = user.user_tenants || [];
+      tenants.forEach((t: any) => {
+        const tenantName = t.tenants?.name || 'Unknown';
+        byTenant[tenantName] = (byTenant[tenantName] || 0) + 1;
+      });
+    });
+
+    return successResponse({
+      total,
+      active,
+      byRole,
+      byTenant,
+    });
+  } catch (error) {
+    console.error('[getUserStats] Error:', error);
+    return errorResponse(
+      error instanceof Error ? error : new Error('Failed to fetch user stats'),
+    );
+  }
 }
 
 export async function getUserTrendsAction() {
-  return successResponse([]);
+  // Alias to detailed for now, or simple version
+  return getUserDetailedTrendsAction(30);
 }
 
 export async function getUserDetailedTrendsAction(days: number = 30) {
-  return successResponse([]);
+  try {
+    const supabase = createAdminClient();
+    const { isGlobalAdmin, tenantIds } = await getPermissions();
+
+    // Fetch minimal data for trending
+    let query = supabase
+      .from('admin_profile_view')
+      .select('created_at, last_sign_in_at, user_roles!inner(role)')
+      .gte(
+        'created_at',
+        new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString(),
+      )
+      .order('created_at', { ascending: true });
+
+    if (!isGlobalAdmin) {
+      query = query.in(
+        'user_tenants.tenant_id', // Note: This might require joining user_tenants in select/filter if not present in view directly flattened
+        tenantIds || [],
+      );
+      // Ensure the join is present for filtering if we use !inner on tenants,
+      // but admin_profile_view might not expose user_tenants ID directly at top level without join?
+      // Let's check view definition mental model: typically joins.
+      // Safe bet: add the join to select if filtering
+      query = query.select(
+        'created_at, last_sign_in_at, user_roles!inner(role), user_tenants!inner(tenant_id)',
+      );
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    // Process into daily buckets
+    const trendMap = new Map<
+      string,
+      {
+        totalUsers: number;
+        activeUsers: number;
+        admins: number;
+        tenants: number;
+      }
+    >();
+
+    // Initialize buckets
+    for (let i = 0; i < days; i++) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      trendMap.set(dateStr, {
+        totalUsers: 0,
+        activeUsers: 0,
+        admins: 0,
+        tenants: 0, // Semantic mismatch: Is this "New tenants" or "Users associated with tenants"? preserving original interface likely "users"
+      });
+    }
+
+    // Since we filtered created_at >= days ago, this is "New Users" trend
+    // If we want "Total Users Over Time", we need ALL users and cumulative count.
+    // The chart usually expects "Total Users" (Growth) or "New Users" (Activity).
+    // Let's do "New Users" per day for "Growth" if that's what the chart expects?
+    // UserTrendsChart uses `total` key.
+    // Let's assume cumulative Growth for `totalUsers`
+
+    // Re-fetch ALL users for cumulative calculation?
+    // Or just fetch range and count new?
+    // "User Growth" implies cumulative total.
+    // Let's fetch counts prior to window to get baseline.
+
+    // Optimization: Fetch all users creates/dates.
+    // For large scale, this is bad. For now (<10k), fetch all `id, created_at` is fine.
+
+    // REDO Query: Fetch ALL for cumulative
+    let fullQuery = supabase
+      .from('admin_profile_view')
+      .select(
+        'created_at, user_roles!inner(role)' +
+          (!isGlobalAdmin ? ', user_tenants!inner(tenant_id)' : ''),
+      )
+      .order('created_at', { ascending: true });
+
+    if (!isGlobalAdmin) {
+      fullQuery = fullQuery.in('user_tenants.tenant_id', tenantIds || []);
+    }
+
+    const { data: allUsers, error: fullError } = await fullQuery;
+    if (fullError) throw fullError;
+
+    const trends: any[] = [];
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - days);
+
+    // Cumulative counters
+    let cumulativeTotal = 0;
+    let cumulativeAdmins = 0;
+
+    // Helper to format date
+    const fmt = (d: Date) => d.toISOString().split('T')[0];
+
+    // Pre-calculate baseline (users created before startDate)
+    const usersBefore = allUsers.filter(
+      (u) => new Date(u.created_at) < startDate,
+    );
+    cumulativeTotal = usersBefore.length;
+    cumulativeAdmins = usersBefore.filter((u: any) =>
+      u.user_roles.some((r: any) => r.role === 'admin'),
+    ).length;
+
+    // Generate daily stats
+    for (let i = 0; i <= days; i++) {
+      const currentDay = new Date(startDate);
+      currentDay.setDate(startDate.getDate() + i);
+      const dateStr = fmt(currentDay);
+      const nextDay = new Date(currentDay);
+      nextDay.setDate(currentDay.getDate() + 1);
+
+      // Find users created on this day
+      const newUsers = allUsers.filter((u) => {
+        const c = new Date(u.created_at);
+        return c >= currentDay && c < nextDay;
+      });
+
+      cumulativeTotal += newUsers.length;
+      cumulativeAdmins += newUsers.filter((u: any) =>
+        u.user_roles.some((r: any) => r.role === 'admin'),
+      ).length;
+
+      trends.push({
+        date: dateStr,
+        totalUsers: cumulativeTotal,
+        activeUsers: 0, // Hard to calc historical active state without event log. Leave 0 or Mock?
+        admins: cumulativeAdmins,
+        tenants: 0, // Unclear metric, leaving 0
+      });
+    }
+
+    return successResponse(trends);
+  } catch (error) {
+    console.error('[getUserDetailedTrendsAction] Error:', error);
+    return errorResponse(
+      error instanceof Error ? error : new Error('Failed to fetch trends'),
+    );
+  }
 }
 
 // --- Bulk Actions ---

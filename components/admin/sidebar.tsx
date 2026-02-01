@@ -37,19 +37,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { useNotifications } from '@/contexts/notification-context';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { createClient } from '@/lib/supabase/client';
-import { LogOut } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -59,39 +47,11 @@ interface SidebarProps {
 export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const { unreadCount } = useNotifications();
-  const router = useRouter();
-  const [user, setUser] = useState<{
-    name: string;
-    email: string;
-    avatar?: string;
-  } | null>(null);
+  // user state removed
 
-  React.useEffect(() => {
-    const fetchUser = async () => {
-      const supabase = createClient();
-      const {
-        data: { user: authUser },
-      } = await supabase.auth.getUser();
-      if (authUser) {
-        setUser({
-          name:
-            authUser.user_metadata?.full_name ||
-            authUser.email?.split('@')[0] ||
-            'User',
-          email: authUser.email || '',
-          avatar: authUser.user_metadata?.avatar_url,
-        });
-      }
-    };
-    fetchUser();
-  }, []);
+  // fetchUser effect removed
 
-  const handleLogout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push('/login');
-    router.refresh();
-  };
+  // handleLogout removed
 
   return (
     <aside
@@ -103,7 +63,7 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         {!isCollapsed && (
           <div className='flex items-center gap-2 font-bold text-lg text-primary tracking-tight'>
             <Truck className='h-6 w-6' />
-            <span>GajanTracker</span>
+            <span>GT Express</span>
           </div>
         )}
         {isCollapsed && (
@@ -256,89 +216,7 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         </div>
       </div>
 
-      {/* User Footer */}
-      <div className='border-t border-border p-3 space-y-2'>
-        {user && !isCollapsed && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant='ghost'
-                className='w-full justify-start px-2 h-12 hover:bg-accent hover:text-accent-foreground'>
-                <div className='flex items-center gap-3 w-full'>
-                  <Avatar className='h-8 w-8'>
-                    <AvatarImage src={user.avatar} />
-                    <AvatarFallback>
-                      {user.name.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className='flex flex-col items-start text-left overflow-hidden'>
-                    <span className='text-sm font-medium truncate w-32'>
-                      {user.name}
-                    </span>
-                    <span className='text-xs text-muted-foreground truncate w-32'>
-                      {user.email}
-                    </span>
-                  </div>
-                  <Settings className='h-4 w-4 ml-auto text-muted-foreground' />
-                </div>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align='end'
-              className='w-56'
-              side='right'
-              sideOffset={10}>
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => router.push('/settings')}>
-                <Settings className='mr-2 h-4 w-4' />
-                Settings
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={handleLogout}
-                className='text-destructive'>
-                <LogOut className='mr-2 h-4 w-4' />
-                Log out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-        {user && isCollapsed && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant='ghost'
-                size='icon'
-                className='w-full h-10 hover:bg-accent hover:text-accent-foreground'>
-                <Avatar className='h-8 w-8'>
-                  <AvatarImage src={user.avatar} />
-                  <AvatarFallback>
-                    {user.name.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align='start'
-              className='w-56'
-              side='right'
-              sideOffset={10}>
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => router.push('/settings')}>
-                <Settings className='mr-2 h-4 w-4' />
-                Settings
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={handleLogout}
-                className='text-destructive'>
-                <LogOut className='mr-2 h-4 w-4' />
-                Log out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
+      {/* User Footer removed as requested */}
     </aside>
   );
 }

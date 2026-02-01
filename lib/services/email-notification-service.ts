@@ -264,12 +264,15 @@ export class EmailService {
       ) // sent in last 24h
       .limit(1);
 
-    // If we found a log, we need to be careful. Ideally we should check if it was for the SAME status.
-    // Since we can't easily, we will proceed.
-    // TODO: Improve duplicate detection by storing 'trigger_event' in notification_logs.metadata
+    // If we found a log, it means we sent an email for this (shipment + status) in the last 24h
+    if (data && data.length > 0) {
+      console.log(
+        `[EmailService] Duplicate detected for ${shipmentId} status ${status}`,
+      );
+      return true;
+    }
 
-    return false; // TEMPORARY: Disable strict duplicate check to allow template testing, or keep it strict?
-    // Let's keep it simply returning false to rely on the upstream caller or just allow re-sends for now as we dev.
+    return false;
   }
 
   /**

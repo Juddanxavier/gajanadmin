@@ -670,16 +670,28 @@ export class ShipmentService {
 
     await this.saveEvents(shipmentId, result.checkpoints);
 
-    // 4. Trigger Notification for Update
-    // We need customer details to send notification
+    // Fetch latest shipment data including customer details
     const { data: shipment } = await this.client
       .from('shipments')
       .select('*')
       .eq('id', shipmentId)
       .single();
 
-    if (shipment) {
+    const statusChanged = existing.status !== result.status;
+
+    // 4. Trigger Notification for Update ONLY if status changed
+    if (shipment && statusChanged) {
+      console.log(
+        `[ShipmentService] Status changed from ${existing.status} to ${result.status}. Triggering notification.`,
+      );
+
       const notificationService = new NotificationService(this.client);
+
+      // Extract invoice details (handle both direct properties or nested structure if needed)
+      // Assuming invoice_details is a JSON object like { amount: 100, currency: 'USD' }
+      const invoiceAmount = shipment.invoice_details?.amount;
+      const invoiceCurrency = shipment.invoice_details?.currency;
+
       await notificationService.sendNotifications({
         shipmentId: shipment.id,
         tenantId: shipment.tenant_id,
@@ -692,7 +704,13 @@ export class ShipmentService {
         location: result.latest_location,
         updatedAt: new Date().toISOString(),
         carrier: result.carrier_code || shipment.carrier_id,
+        invoiceAmount: invoiceAmount,
+        invoiceCurrency: invoiceCurrency,
       });
+    } else {
+      console.log(
+        `[ShipmentService] Status ${existing.status} un-changed. Skipping notification.`,
+      );
     }
   }
 

@@ -140,6 +140,15 @@ export class ProfileService {
       return { success: false, error: updateError.message };
     }
 
+    // Sync to auth metadata
+    const { error: authError } = await supabase.auth.updateUser({
+      data: { avatar_url: publicUrl },
+    });
+
+    if (authError) {
+      console.warn('Failed to sync avatar to auth metadata:', authError);
+    }
+
     return { success: true, url: publicUrl };
   }
 

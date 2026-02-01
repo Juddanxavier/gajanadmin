@@ -43,6 +43,7 @@ import {
 import { GlobalSearch } from '@/components/admin/global-search';
 import { AdminBreadcrumbs } from '@/components/admin/breadcrumbs';
 import { getCurrentTenantDetails } from '@/app/(dashboard)/users/actions';
+
 import { CountryFlag } from '@/components/ui/country-flag';
 
 interface NavbarProps {
@@ -74,34 +75,29 @@ export default function Navbar({
     const fetchData = async () => {
       const supabase = createClient();
 
-      const getUser = async () => {
-        const {
-          data: { user: authUser },
-        } = await supabase.auth.getUser();
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
 
-        if (authUser) {
-          setUser({
-            name:
-              authUser.user_metadata?.full_name ||
-              authUser.email?.split('@')[0] ||
-              'User',
-            email: authUser.email || '',
-            avatar: authUser.user_metadata?.avatar_url,
-          });
+      if (authUser) {
+        setUser({
+          name:
+            authUser.user_metadata?.full_name ||
+            authUser.email?.split('@')[0] ||
+            'User',
+          email: authUser.email || '',
+          avatar: authUser.user_metadata?.avatar_url,
+        });
 
-          // Fetch Tenant
-          const tenantDetails = await getCurrentTenantDetails();
+        // Fetch Tenant
+        const tenantDetails = await getCurrentTenantDetails();
 
-          if (tenantDetails) {
-            setTenant(tenantDetails);
-          } else {
-            // If no tenant is assigned, assume Global Admin
-            setTenant({ name: 'Global Admin', code: 'GLOBAL' });
-          }
+        if (tenantDetails) {
+          setTenant(tenantDetails);
+        } else {
+          setTenant({ name: 'Global Admin', code: 'GLOBAL' });
         }
-      };
-
-      await getUser();
+      }
 
       // Listen for auth changes (e.g. profile update)
       const {
@@ -116,7 +112,6 @@ export default function Navbar({
             email: session.user.email || '',
             avatar: session.user.user_metadata?.avatar_url,
           });
-          // Optionally re-fetch tenant if needed, but usually profile update only changes name/avatar
         }
       });
 
@@ -263,28 +258,26 @@ export default function Navbar({
           {/* Breadcrumbs / Tenant Display */}
           <nav className='hidden sm:flex items-center space-x-4 text-sm text-muted-foreground'>
             <AdminBreadcrumbs />
-            {tenant && (
-              <div className='flex items-center gap-2 px-3 py-1 bg-muted/50 rounded-full border border-border/50'>
-                {tenant.code === 'GLOBAL' ? (
-                  <Globe className='h-3 w-4' />
-                ) : (
-                  <CountryFlag countryCode={tenant.code} className='h-3 w-4' />
-                )}
-                <span className='font-medium text-foreground'>
-                  {tenant.name}
-                </span>
-              </div>
-            )}
           </nav>
         </div>
 
         {/* Center Section: Search Bar */}
-        <div className='flex-1 max-w-md hidden lg:block'>
+        <div className='flex-1 max-w-md hidden lg:block' data-tour='search-bar'>
           <GlobalSearch />
         </div>
 
         {/* Right Section: Actions */}
         <div className='flex items-center gap-2 flex-1 justify-end'>
+          {tenant && (
+            <div className='hidden sm:flex items-center gap-1.5 px-2.5 py-0.5 bg-muted/50 rounded-full border border-border/50 mr-2 text-xs'>
+              {tenant.code === 'GLOBAL' ? (
+                <Globe className='h-3 w-3' />
+              ) : (
+                <CountryFlag countryCode={tenant.code} className='h-3 w-4' />
+              )}
+              <span className='font-medium text-foreground'>{tenant.name}</span>
+            </div>
+          )}
           {/* Theme Toggle */}
           <Button
             variant='ghost'
@@ -308,7 +301,7 @@ export default function Navbar({
 
           {/* User Menu */}
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+            <DropdownMenuTrigger asChild data-tour='profile-menu'>
               <Button variant='ghost' className='relative h-9 gap-2 px-2'>
                 <Avatar className='h-7 w-7'>
                   <AvatarImage src={user?.avatar} />

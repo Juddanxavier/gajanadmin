@@ -118,12 +118,16 @@ export const sidebarGroups: SidebarGroup[] = [
     ],
   },
   {
-    label: 'System',
     items: [
       {
         title: 'Settings',
         href: '/settings',
         icon: Settings,
+      },
+      {
+        title: 'Help & Support',
+        href: '/help',
+        icon: FileText,
       },
     ],
   },

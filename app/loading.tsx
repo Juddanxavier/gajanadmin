@@ -1,14 +1,7 @@
 /** @format */
 
-import { Skeleton } from '@/components/ui/skeleton';
+import { PageLoading } from '@/components/ui/page-loading';
 
 export default function Loading() {
-  return (
-    <div className='flex flex-col items-center justify-center min-h-screen space-y-4'>
-      <div className='space-y-2'>
-        <Skeleton className='h-8 w-[250px]' />
-        <Skeleton className='h-4 w-[200px]' />
-      </div>
-    </div>
-  );
+  return <PageLoading fullScreen message='Initializing application...' />;
 }
