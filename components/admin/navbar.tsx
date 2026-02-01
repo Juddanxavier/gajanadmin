@@ -73,30 +73,56 @@ export default function Navbar({
 
     const fetchData = async () => {
       const supabase = createClient();
-      const {
-        data: { user: authUser },
-      } = await supabase.auth.getUser();
 
-      if (authUser) {
-        setUser({
-          name:
-            authUser.user_metadata?.full_name ||
-            authUser.email?.split('@')[0] ||
-            'User',
-          email: authUser.email || '',
-          avatar: authUser.user_metadata?.avatar_url,
-        });
+      const getUser = async () => {
+        const {
+          data: { user: authUser },
+        } = await supabase.auth.getUser();
 
-        // Fetch Tenant
-        const tenantDetails = await getCurrentTenantDetails();
+        if (authUser) {
+          setUser({
+            name:
+              authUser.user_metadata?.full_name ||
+              authUser.email?.split('@')[0] ||
+              'User',
+            email: authUser.email || '',
+            avatar: authUser.user_metadata?.avatar_url,
+          });
 
-        if (tenantDetails) {
-          setTenant(tenantDetails);
-        } else {
-          // If no tenant is assigned, assume Global Admin
-          setTenant({ name: 'Global Admin', code: 'GLOBAL' });
+          // Fetch Tenant
+          const tenantDetails = await getCurrentTenantDetails();
+
+          if (tenantDetails) {
+            setTenant(tenantDetails);
+          } else {
+            // If no tenant is assigned, assume Global Admin
+            setTenant({ name: 'Global Admin', code: 'GLOBAL' });
+          }
         }
-      }
+      };
+
+      await getUser();
+
+      // Listen for auth changes (e.g. profile update)
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        if (session?.user) {
+          setUser({
+            name:
+              session.user.user_metadata?.full_name ||
+              session.user.email?.split('@')[0] ||
+              'User',
+            email: session.user.email || '',
+            avatar: session.user.user_metadata?.avatar_url,
+          });
+          // Optionally re-fetch tenant if needed, but usually profile update only changes name/avatar
+        }
+      });
+
+      return () => {
+        subscription.unsubscribe();
+      };
     };
 
     fetchData();

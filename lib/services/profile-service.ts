@@ -1,3 +1,5 @@
+/** @format */
+
 import { createClient } from '@/lib/supabase/server';
 import type {
   UserProfile,
@@ -11,7 +13,9 @@ export class ProfileService {
    */
   static async getCurrentProfile(): Promise<UserProfile | null> {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) return null;
 
@@ -46,7 +50,7 @@ export class ProfileService {
    */
   static async updateProfile(
     userId: string,
-    updates: UpdateProfileInput
+    updates: UpdateProfileInput,
   ): Promise<{ success: boolean; error?: string }> {
     const supabase = await createClient();
 
@@ -67,6 +71,18 @@ export class ProfileService {
       return { success: false, error: error.message };
     }
 
+    // Sync display_name to auth.users metadata for global access (e.g. Navbar)
+    if (updates.display_name) {
+      const { error: authError } = await supabase.auth.updateUser({
+        data: { full_name: updates.display_name },
+      });
+
+      if (authError) {
+        console.warn('Failed to sync auth metadata:', authError);
+        // We don't fail the whole operation if metadata sync fails, but we log it.
+      }
+    }
+
     return { success: true };
   }
 
@@ -75,7 +91,7 @@ export class ProfileService {
    */
   static async uploadAvatar(
     userId: string,
-    file: File
+    file: File,
   ): Promise<{ success: boolean; url?: string; error?: string }> {
     const supabase = await createClient();
 
@@ -88,7 +104,10 @@ export class ProfileService {
     }
 
     if (!allowedTypes.includes(file.type)) {
-      return { success: false, error: 'Only JPEG, PNG, and WebP images are allowed' };
+      return {
+        success: false,
+        error: 'Only JPEG, PNG, and WebP images are allowed',
+      };
     }
 
     // Upload to storage
@@ -106,9 +125,9 @@ export class ProfileService {
     }
 
     // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('avatars')
-      .getPublicUrl(data.path);
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from('avatars').getPublicUrl(data.path);
 
     // Update profile with new avatar URL
     const { error: updateError } = await supabase
@@ -150,7 +169,9 @@ export class ProfileService {
         .eq('assigned_to', userId),
     ]);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     return {
       total_shipments: shipmentsCount.count || 0,
@@ -165,12 +186,14 @@ export class ProfileService {
    */
   static async changePassword(
     currentPassword: string,
-    newPassword: string
+    newPassword: string,
   ): Promise<{ success: boolean; error?: string }> {
     const supabase = await createClient();
 
     // Verify current password by attempting to sign in
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user?.email) {
       return { success: false, error: 'User not found' };
     }

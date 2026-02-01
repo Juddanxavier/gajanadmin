@@ -40,6 +40,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { getUserGradient } from '@/lib/utils';
 import { CountryFlag } from '@/components/ui/country-flag';
 import { ProfileHeader } from '@/components/profile/profile-header';
+import { createClient } from '@/lib/supabase/client';
 
 interface ProfileClientProps {
   userId: string;
@@ -173,6 +174,10 @@ export default function ProfileClient({
         });
         setEditingProfile(false);
         toast({ title: 'Success', description: 'Profile updated' });
+
+        // Refresh session to update Navbar
+        const supabase = createClient();
+        await supabase.auth.refreshSession();
       } else {
         toast({
           title: 'Error',

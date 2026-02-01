@@ -125,16 +125,51 @@ export function ProfileHeader({
               <div>
                 <h1 className='text-2xl font-bold text-foreground flex items-center gap-2'>
                   {data.displayName}
-                  {data.isGlobalAdmin && (
-                    <ShieldCheck className='h-5 w-5 text-blue-500' /> // Using standard color for now
-                  )}
                 </h1>
-                <p className='text-muted-foreground flex items-center gap-2 text-sm'>
-                  @{data.email.split('@')[0]}
-                  <span className='text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground font-medium'>
-                    {data.roles.join(', ') || 'User'}
-                  </span>
-                </p>
+
+                <div className='flex flex-wrap items-center gap-2 mt-1.5'>
+                  {/* Global Admin Badge */}
+                  {data.isGlobalAdmin && (
+                    <Badge
+                      variant='default'
+                      className='gap-1 bg-blue-600 hover:bg-blue-700 text-white border-transparent'>
+                      <Globe className='h-3 w-3' />
+                      Global Admin
+                    </Badge>
+                  )}
+
+                  {/* Role Badges */}
+                  {data.roles.map((role) => (
+                    <Badge
+                      key={role}
+                      variant='secondary'
+                      className='capitalize'>
+                      {role}
+                    </Badge>
+                  ))}
+
+                  {/* Tenant Badges (show first 2 explicitly if not Global Admin, else count) */}
+                  {!data.isGlobalAdmin && data.tenants.length > 0 && (
+                    <>
+                      {data.tenants.slice(0, 2).map((t, i) => (
+                        <Badge
+                          key={i}
+                          variant='outline'
+                          className='gap-1 border-dashed'>
+                          <Building2 className='h-3 w-3 opacity-50' />
+                          {t.name}
+                        </Badge>
+                      ))}
+                      {data.tenants.length > 2 && (
+                        <Badge
+                          variant='outline'
+                          className='text-muted-foreground'>
+                          +{data.tenants.length - 2} more
+                        </Badge>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
 
               {/* Stats/Badges Row */}

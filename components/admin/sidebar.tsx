@@ -117,11 +117,6 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         <div className='space-y-4'>
           {sidebarGroups.map((group, groupIndex) => (
             <div key={groupIndex} className='space-y-1'>
-              {!isCollapsed && group.label && (
-                <h4 className='px-2 py-1 text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider'>
-                  {group.label}
-                </h4>
-              )}
               <nav className='space-y-1'>
                 {group.items.map((item) => {
                   const Icon = item.icon;
@@ -178,7 +173,7 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                     return (
                       <Collapsible
                         key={item.title}
-                        defaultOpen={true}
+                        defaultOpen={isActive}
                         className='group/collapsible'>
                         <CollapsibleTrigger asChild>
                           <div
