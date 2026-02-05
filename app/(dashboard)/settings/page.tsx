@@ -303,6 +303,48 @@ export default function SettingsPage() {
                     placeholder='https://example.com/logo.png'
                   />
                 </div>
+                <div className='space-y-2'>
+                  <Label htmlFor='brand_color'>Brand Color (Hex)</Label>
+                  <div className='flex gap-2'>
+                    <Input
+                      id='brand_color'
+                      type='color'
+                      className='w-12 p-1 h-10 cursor-pointer'
+                      value={settings?.brand_color || '#2563EB'}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          brand_color: e.target.value,
+                        })
+                      }
+                    />
+                    <Input
+                      value={settings?.brand_color || '#2563EB'}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          brand_color: e.target.value,
+                        })
+                      }
+                      placeholder='#2563EB'
+                      className='font-mono uppercas'
+                    />
+                  </div>
+                </div>
+                <div className='space-y-2'>
+                  <Label htmlFor='company_address'>Company Address</Label>
+                  <Input
+                    id='company_address'
+                    value={settings?.company_address || ''}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        company_address: e.target.value,
+                      })
+                    }
+                    placeholder='123 Business St, City, Country'
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -411,6 +453,65 @@ export default function SettingsPage() {
                   }
                 />
               </div>
+
+              {settings?.email_notifications_enabled && (
+                <div className='mt-6 space-y-3'>
+                  <Label>Notification Triggers</Label>
+                  <p className='text-sm text-muted-foreground'>
+                    Select which shipment statuses should trigger an email
+                    notification.
+                  </p>
+                  <div className='grid grid-cols-2 gap-4 mt-2'>
+                    {[
+                      { id: 'info_received', label: 'Info Received' },
+                      { id: 'in_transit', label: 'In Transit' },
+                      { id: 'out_for_delivery', label: 'Out for Delivery' },
+                      { id: 'delivered', label: 'Delivered' },
+                      { id: 'exception', label: 'Exception' },
+                      { id: 'failed_attempt', label: 'Failed Attempt' },
+                      {
+                        id: 'available_for_pickup',
+                        label: 'Available for Pickup',
+                      },
+                      { id: 'expired', label: 'Expired' },
+                    ].map((trigger) => (
+                      <div
+                        key={trigger.id}
+                        className='flex items-center space-x-2'>
+                        <Switch
+                          id={`trigger-${trigger.id}`}
+                          checked={settings?.notification_triggers?.includes(
+                            trigger.id,
+                          )}
+                          onCheckedChange={(checked) => {
+                            const triggers =
+                              settings.notification_triggers || [];
+                            if (checked) {
+                              setSettings({
+                                ...settings,
+                                notification_triggers: [
+                                  ...triggers,
+                                  trigger.id,
+                                ],
+                              });
+                            } else {
+                              setSettings({
+                                ...settings,
+                                notification_triggers: triggers.filter(
+                                  (t: string) => t !== trigger.id,
+                                ),
+                              });
+                            }
+                          }}
+                        />
+                        <Label htmlFor={`trigger-${trigger.id}`}>
+                          {trigger.label}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 

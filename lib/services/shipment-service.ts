@@ -3,11 +3,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { NotificationService } from './notification-service';
 
-// ...
-
-// 4. Trigger Notification (Async - do not block)
-// const notificationService = new NotificationService(this.client);
-// await notificationService.sendNotifications({...});
 import {
   CreateShipmentParams,
   ShipmentProvider,
@@ -19,7 +14,6 @@ import {
 import { Track123Provider } from '@/lib/tracking/providers/track123';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTrack123ApiKey } from '@/lib/settings/service';
-import { env } from '@/lib/env';
 
 export interface GetShipmentsParams {
   page?: number;
@@ -58,6 +52,10 @@ export class ShipmentService {
     }
   }
 
+  /**
+   * Create a new shipment.
+   * IMPROVEMENT: Fail-Safe. If external API fails, we still create the shipment locally.
+   */
   async createShipment(
     params: CreateShipmentParams & {
       userId?: string;
@@ -71,8 +69,7 @@ export class ShipmentService {
 
     // Helper to generate White Label ID
     const generateWhiteLabelId = (countryCode?: string) => {
-      const prefix = countryCode === 'LK' ? 'GTES' : 'GTEI'; // Default to GTEI (India)
-      // Generate 8 random digits
+      const prefix = countryCode === 'LK' ? 'GTES' : 'GTEI';
       const randomDigits = Math.floor(
         10000000 + Math.random() * 90000000,
       ).toString();
@@ -114,9 +111,6 @@ export class ShipmentService {
           );
         return restored;
       } else {
-        console.log(
-          `[ShipmentService] Shipment ${params.tracking_number} already exists (active).`,
-        );
         throw new Error(
           `Tracking code ${params.tracking_number} already exists in the system.`,
         );
@@ -132,7 +126,7 @@ export class ShipmentService {
       trackingResult = {
         tracking_number: params.tracking_number,
         carrier_code: params.carrier_code || 'manual',
-        status: 'delivered', // Assume delivered for historical
+        status: 'delivered',
         checkpoints: [],
         latest_location: 'Historical Data Entry',
         estimated_delivery: undefined,
@@ -140,14 +134,33 @@ export class ShipmentService {
       };
     } else {
       // Normal Flow - Create tracker in external system
-      trackingResult = await provider.createTracker(params);
+      try {
+        trackingResult = await provider.createTracker(params);
+      } catch (apiError) {
+        console.error(
+          '[ShipmentService] External API Create Failed (Fail-Safe Mode):',
+          apiError,
+        );
+        // Fail-Safe: Create a local "pending" record so the user isn't blocked.
+        trackingResult = {
+          tracking_number: params.tracking_number,
+          carrier_code: params.carrier_code || 'unknown',
+          status: 'pending',
+          checkpoints: [],
+          raw_response: { error: 'API Failed', details: apiError },
+          origin_country: 'IN', // Default
+        };
+      }
     }
 
+    // Auto-create carrier if missing
     if (trackingResult.carrier_code) {
       await this.ensureCarrierExists(trackingResult.carrier_code);
     }
-
-    if (params.carrier_code) {
+    if (
+      params.carrier_code &&
+      params.carrier_code !== trackingResult.carrier_code
+    ) {
       await this.ensureCarrierExists(params.carrier_code);
     }
 
@@ -185,23 +198,47 @@ export class ShipmentService {
       await this.saveEvents(shipment.id, trackingResult.checkpoints);
     }
 
-    // 4. Trigger Notification (Async - do not block)
-    const notificationService = new NotificationService(this.client);
-    // don't await strictly to keep response fast, or await if critical?
-    // User wants queue basically, but we await to log it.
-    await notificationService.sendNotifications({
-      shipmentId: shipment.id,
-      tenantId: shipment.tenant_id,
-      status: shipment.status,
-      recipientEmail: shipment.customer_details?.email,
-      recipientPhone: shipment.customer_details?.phone,
-      recipientName: shipment.customer_details?.name,
-      trackingCode: shipment.carrier_tracking_code,
-      referenceCode: shipment.white_label_code,
-      location: shipment.latest_location,
-      updatedAt: shipment.updated_at,
-      carrier: shipment.carrier_id,
-    });
+    // --- APP LAYER NOTIFICATION (INSERT) ---
+    const notifiableStatuses = [
+      'delivered',
+      'info_received',
+      'exception',
+      'out_for_delivery',
+      'in_transit',
+    ];
+
+    if (notifiableStatuses.includes(shipment.status)) {
+      console.log(
+        `[ShipmentService] Triggering initial notification for ${shipment.status}`,
+      );
+      try {
+        const notificationService = new NotificationService(this.client);
+        // Invoice amount only on first send (Creation)
+        const amount = shipment.invoice_details?.amount;
+        const currency = shipment.invoice_details?.currency;
+
+        await notificationService.sendNotifications({
+          shipmentId: shipment.id,
+          tenantId: shipment.tenant_id,
+          status: shipment.status,
+          recipientEmail: shipment.customer_details?.email,
+          recipientPhone: shipment.customer_details?.phone,
+          recipientName: shipment.customer_details?.name,
+          trackingCode: shipment.carrier_tracking_code,
+          referenceCode: shipment.white_label_code,
+          location: shipment.latest_location,
+          updatedAt: shipment.created_at,
+          carrier: shipment.carrier_id,
+          invoiceAmount: amount,
+          invoiceCurrency: currency,
+        });
+      } catch (notifError) {
+        console.error(
+          '[ShipmentService] Failed to send initial notification:',
+          notifError,
+        );
+      }
+    }
 
     return shipment;
   }
@@ -315,8 +352,16 @@ export class ShipmentService {
       };
     }
     if (updates.status) updatePayload.status = updates.status;
+    // Always update UpdatedAt
+    updatePayload.updated_at = new Date().toISOString();
 
-    const { data, error } = await this.client
+    const { data: originalShipment } = await this.client
+      .from('shipments')
+      .select('*')
+      .eq('id', shipmentId)
+      .single();
+
+    const { data: updatedShipment, error } = await this.client
       .from('shipments')
       .update(updatePayload)
       .eq('id', shipmentId)
@@ -324,10 +369,91 @@ export class ShipmentService {
       .single();
 
     if (error) throw error;
-    return data;
+
+    // --- APP LAYER NOTIFICATION (UPDATE) ---
+    // Trigger only if status changed
+    if (
+      originalShipment &&
+      updatedShipment.status !== originalShipment.status
+    ) {
+      const notifiableStatuses = [
+        'delivered',
+        'info_received',
+        'exception',
+        'out_for_delivery',
+        'in_transit',
+      ];
+
+      if (notifiableStatuses.includes(updatedShipment.status)) {
+        console.log(
+          `[ShipmentService] Status changed via manual update (${originalShipment.status} -> ${updatedShipment.status}). Sending notification.`,
+        );
+        try {
+          const notificationService = new NotificationService(this.client);
+          await notificationService.sendNotifications({
+            shipmentId: updatedShipment.id,
+            tenantId: updatedShipment.tenant_id,
+            status: updatedShipment.status,
+            recipientEmail: updatedShipment.customer_details?.email,
+            recipientPhone: updatedShipment.customer_details?.phone,
+            recipientName: updatedShipment.customer_details?.name,
+            trackingCode: updatedShipment.carrier_tracking_code,
+            referenceCode: updatedShipment.white_label_code,
+            location: updatedShipment.latest_location,
+            updatedAt: updatedShipment.updated_at,
+            carrier: updatedShipment.carrier_id,
+            // No invoice on updates
+            invoiceAmount: undefined,
+            invoiceCurrency: undefined,
+          });
+        } catch (e) {
+          console.error(
+            '[ShipmentService] Failed to send update notification:',
+            e,
+          );
+        }
+      }
+    }
+
+    return updatedShipment;
   }
 
   async deleteShipment(shipmentId: string, soft = true) {
+    // Always try to stop tracking remotely first
+    const { data: shipment } = await this.client
+      .from('shipments')
+      .select('carrier_tracking_code, carrier_id, provider, tenant_id')
+      .eq('id', shipmentId)
+      .single();
+
+    if (shipment) {
+      try {
+        const provider = await this.getProvider(
+          shipment.provider,
+          shipment.tenant_id,
+        );
+        if (provider.stopTracking) {
+          // Pass carrier_id as strict second argument
+          const carrierId = shipment.carrier_id;
+
+          console.log(
+            `[ShipmentService] Attempting to stop tracking remotely: ${shipment.carrier_tracking_code} / ${carrierId}`,
+          );
+
+          await provider.stopTracking(
+            shipment.carrier_tracking_code,
+            carrierId,
+          );
+        }
+      } catch (e) {
+        // Robust Error Handling: Log but continue with local delete
+        console.warn(
+          `[ShipmentService] Failed to stop tracking remotely for ${shipment.carrier_tracking_code}. Proceeding with local delete.`,
+          e,
+        );
+      }
+    }
+
     if (soft) {
       const { error } = await this.client
         .from('shipments')
@@ -335,34 +461,6 @@ export class ShipmentService {
         .eq('id', shipmentId);
       if (error) throw error;
     } else {
-      // Get shipment details first to stop tracking
-      const { data: shipment } = await this.client
-        .from('shipments')
-        .select('carrier_tracking_code, carrier_id, provider, tenant_id')
-        .eq('id', shipmentId)
-        .single();
-
-      if (shipment) {
-        try {
-          const provider = await this.getProvider(
-            shipment.provider,
-            shipment.tenant_id,
-          );
-          if (provider.stopTracking) {
-            await provider.stopTracking(
-              shipment.carrier_tracking_code,
-              shipment.carrier_id,
-            );
-          }
-        } catch (e) {
-          console.warn(
-            `[ShipmentService] Failed to stop tracking remotely for ${shipment.carrier_tracking_code}`,
-            e,
-          );
-          // Continue with local delete even if remote fails
-        }
-      }
-
       const { error } = await this.client
         .from('shipments')
         .delete()
@@ -436,12 +534,11 @@ export class ShipmentService {
       ['exception', 'attempt_fail', 'expired'].includes(s.status),
     ).length;
 
-    // Calculate Average Delivery Time (in days)
     let avgDeliveryDays = 0;
     if (delivered > 0) {
       const totalDurationMs = deliveredShipments.reduce((acc, s) => {
         const start = new Date(s.created_at).getTime();
-        const end = new Date(s.updated_at).getTime(); // Approximation
+        const end = new Date(s.updated_at).getTime();
         return acc + (end - start);
       }, 0);
       avgDeliveryDays = Math.round(
@@ -481,8 +578,8 @@ export class ShipmentService {
       }));
     }
 
-    // 2. API Fallback (simplified for now directly calling provider if needed)
-    const provider = await this.getProvider('track123'); // Default provider for discovery
+    // 2. API Fallback
+    const provider = await this.getProvider('track123');
     const apiCarriers = await provider.getCarriers();
 
     return apiCarriers
@@ -510,63 +607,55 @@ export class ShipmentService {
     let query = this.client
       .from('shipments')
       .select('id, tenant_id')
-      .eq('carrier_tracking_code', trackNo); // Changed from tracking_number to carrier_tracking_code
+      .eq('carrier_tracking_code', trackNo);
 
     if (tenantId) {
       query = query.eq('tenant_id', tenantId);
     }
 
     const { data: shipments, error } = await query;
-
     if (error) throw error;
-    if (!shipments || shipments.length === 0) {
-      console.warn(
-        `[ShipmentService] No shipment found for tracking number: ${trackNo}`,
-      );
-      return null;
-    }
-
-    // If multiple shipments (e.g. across tenants if tenantId not provided), update all of them?
-    // Or just the first one? Ideally tracking numbers are unique per carrier, but maybe not globally.
-    // For now, update all matching shipments.
 
     const results = [];
+    if (shipments) {
+      for (const shipment of shipments) {
+        const status = this.mapStatus(transitStatus);
 
-    for (const shipment of shipments) {
-      // Map status
-      const status = this.mapStatus(transitStatus);
+        const checkpoints: TrackingCheckpoint[] = (
+          localLogisticsInfo?.trackingDetails || []
+        )
+          .map((detail: any) => ({
+            occurred_at: detail.eventTime,
+            status: this.mapStatus(
+              detail.transitSubStatus || detail.eventDetail,
+            ),
+            description: detail.eventDetail,
+            location: detail.address,
+            raw_status: detail.transitSubStatus,
+          }))
+          .sort(
+            (a: any, b: any) =>
+              new Date(b.occurred_at).getTime() -
+              new Date(a.occurred_at).getTime(),
+          );
 
-      // Map checkpoints
-      const checkpoints: TrackingCheckpoint[] = (
-        localLogisticsInfo?.trackingDetails || []
-      )
-        .map((detail: any) => ({
-          occurred_at: detail.eventTime,
-          status: this.mapStatus(detail.transitSubStatus || detail.eventDetail), // Fallback
-          description: detail.eventDetail,
-          location: detail.address,
-          raw_status: detail.transitSubStatus,
-        }))
-        .sort(
-          (a: any, b: any) =>
-            new Date(b.occurred_at).getTime() -
-            new Date(a.occurred_at).getTime(),
+        const trackingResult: TrackingResult = {
+          tracking_number: trackNo,
+          carrier_code: localLogisticsInfo?.courierCode || 'unknown',
+          status,
+          checkpoints: checkpoints,
+          latest_location: checkpoints[0]?.location,
+          estimated_delivery: payload.estimatedDelivery,
+          raw_response: payload,
+        };
+
+        await this.updateShipmentFromTrackingResult(
+          shipment.id,
+          trackingResult,
         );
-
-      const trackingResult: TrackingResult = {
-        tracking_number: trackNo,
-        carrier_code: localLogisticsInfo?.courierCode || 'unknown',
-        status,
-        checkpoints: checkpoints,
-        latest_location: checkpoints[0]?.location,
-        estimated_delivery: payload.estimatedDelivery, // Might be in payload?
-        raw_response: payload,
-      };
-
-      await this.updateShipmentFromTrackingResult(shipment.id, trackingResult);
-      results.push({ id: shipment.id, status: 'updated' });
+        results.push({ id: shipment.id, status: 'updated' });
+      }
     }
-
     return results;
   }
 
@@ -580,30 +669,19 @@ export class ShipmentService {
       DELIVERED: 'delivered',
       EXCEPTION: 'exception',
       EXPIRED: 'expired',
-      InfoReceived: 'info_received',
-      InTransit: 'in_transit',
-      OutForDelivery: 'out_for_delivery',
-      Delivered: 'delivered',
-      Exception: 'exception',
-      Fail: 'attempt_fail',
     };
 
-    // Check direct match
-    if (statusMap[status]) return statusMap[status];
+    const s = (status || '').toUpperCase();
+    if (statusMap[s]) return statusMap[s]; // Direct Match
 
-    // Check uppercase match
-    const upper = status?.toUpperCase();
-    if (statusMap[upper]) return statusMap[upper];
+    // Fuzzy Match
+    if (s.includes('DELIVER')) return 'delivered';
+    if (s.includes('TRANSIT')) return 'in_transit';
+    if (s.includes('INFO')) return 'info_received';
+    if (s.includes('EXCEPTION') || s.includes('RETURN')) return 'exception';
+    if (s.includes('FAIL')) return 'attempt_fail';
 
-    // Check partials
-    if (upper?.includes('DELIVER')) return 'delivered';
-    if (upper?.includes('TRANSIT')) return 'in_transit';
-    if (upper?.includes('INFO')) return 'info_received';
-    if (upper?.includes('EXCEPTION') || upper?.includes('RETURN'))
-      return 'exception';
-    if (upper?.includes('FAIL')) return 'attempt_fail';
-
-    return 'pending'; // Default
+    return 'pending';
   }
 
   private async ensureCarrierExists(code: string) {
@@ -617,19 +695,14 @@ export class ShipmentService {
 
     if (data) return;
 
-    console.log(`[ShipmentService] Auto-creating missing carrier: ${code}`);
-    // Try to create it with a placeholder name
     const { error } = await this.client.from('carriers').insert({
       code: code,
-      name_en: code.toUpperCase(), // Placeholder - could be updated later via sync
+      name_en: code.toUpperCase(),
       name_cn: code.toUpperCase(),
     });
 
     if (error) {
-      console.warn(
-        `[ShipmentService] Failed to auto-create carrier ${code}:`,
-        error.message,
-      );
+      // Ignore duplicate key errors if race condition
     }
   }
 
@@ -664,53 +737,50 @@ export class ShipmentService {
     const { error } = await this.client
       .from('shipments')
       .update(updatePayload)
-      .eq('id', shipmentId); // Updated_at trigger handles timestamp
+      .eq('id', shipmentId);
 
     if (error) throw error;
 
     await this.saveEvents(shipmentId, result.checkpoints);
 
-    // Fetch latest shipment data including customer details
-    const { data: shipment } = await this.client
-      .from('shipments')
-      .select('*')
-      .eq('id', shipmentId)
-      .single();
-
+    // --- APP LAYER NOTIFICATION (SYNC) ---
     const statusChanged = existing.status !== result.status;
+    if (statusChanged) {
+      const notifiableStatuses = [
+        'delivered',
+        'info_received',
+        'exception',
+        'out_for_delivery',
+        'in_transit',
+      ];
+      if (notifiableStatuses.includes(result.status)) {
+        console.log(
+          `[ShipmentService] Sync Status change (${existing.status} -> ${result.status}). Triggering notification.`,
+        );
 
-    // 4. Trigger Notification for Update ONLY if status changed
-    if (shipment && statusChanged) {
-      console.log(
-        `[ShipmentService] Status changed from ${existing.status} to ${result.status}. Triggering notification.`,
-      );
-
-      const notificationService = new NotificationService(this.client);
-
-      // Extract invoice details (handle both direct properties or nested structure if needed)
-      // Assuming invoice_details is a JSON object like { amount: 100, currency: 'USD' }
-      const invoiceAmount = shipment.invoice_details?.amount;
-      const invoiceCurrency = shipment.invoice_details?.currency;
-
-      await notificationService.sendNotifications({
-        shipmentId: shipment.id,
-        tenantId: shipment.tenant_id,
-        status: result.status, // Use the NEW status from result
-        recipientEmail: shipment.customer_details?.email,
-        recipientPhone: shipment.customer_details?.phone,
-        recipientName: shipment.customer_details?.name,
-        trackingCode: result.tracking_number || shipment.carrier_tracking_code,
-        referenceCode: shipment.white_label_code,
-        location: result.latest_location,
-        updatedAt: new Date().toISOString(),
-        carrier: result.carrier_code || shipment.carrier_id,
-        invoiceAmount: invoiceAmount,
-        invoiceCurrency: invoiceCurrency,
-      });
-    } else {
-      console.log(
-        `[ShipmentService] Status ${existing.status} un-changed. Skipping notification.`,
-      );
+        try {
+          const notificationService = new NotificationService(this.client);
+          await notificationService.sendNotifications({
+            shipmentId: existing.id,
+            tenantId: existing.tenant_id,
+            status: result.status,
+            recipientEmail: existing.customer_details?.email,
+            recipientPhone: existing.customer_details?.phone,
+            recipientName: existing.customer_details?.name,
+            trackingCode:
+              result.tracking_number || existing.carrier_tracking_code,
+            referenceCode: existing.white_label_code,
+            location: result.latest_location,
+            updatedAt: new Date().toISOString(),
+            carrier: result.carrier_code || existing.carrier_id,
+          });
+        } catch (e) {
+          console.error(
+            '[ShipmentService] Failed to send sync notification:',
+            e,
+          );
+        }
+      }
     }
   }
 
@@ -721,58 +791,16 @@ export class ShipmentService {
         {
           shipment_id: shipmentId,
           status: cp.status || 'unknown',
-          occurred_at: cp.occurred_at,
           location: cp.location,
           description: cp.description,
+          occurred_at: cp.occurred_at,
           raw_data: cp,
         },
         { onConflict: 'shipment_id, occurred_at, status' },
       );
-      if (error) console.error('Upsert Event Error:', error);
-    }
-  }
-  async getShipmentTrends(days: number = 30) {
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-
-    const { data, error } = await this.client
-      .from('shipments')
-      .select('created_at, status')
-      .gte('created_at', startDate.toISOString())
-      .is('deleted_at', null);
-
-    if (error) throw error;
-
-    // Group by date
-    const trends: Record<
-      string,
-      { total: number; delivered: number; exception: number }
-    > = {};
-
-    // Initialize all days
-    for (let i = 0; i < days; i++) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
-      trends[dateStr] = { total: 0, delivered: 0, exception: 0 };
-    }
-
-    data.forEach((s) => {
-      const dateStr = s.created_at.split('T')[0];
-      if (trends[dateStr]) {
-        trends[dateStr].total++;
-        if (s.status === 'delivered') trends[dateStr].delivered++;
-        if (['exception', 'attempt_fail', 'expired'].includes(s.status))
-          trends[dateStr].exception++;
+      if (error) {
+        // console.error('[ShipmentService] Failed to save event:', error.message);
       }
-    });
-
-    // Convert to array and sort
-    return Object.entries(trends)
-      .map(([date, stats]) => ({
-        date,
-        ...stats,
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date));
+    }
   }
 }

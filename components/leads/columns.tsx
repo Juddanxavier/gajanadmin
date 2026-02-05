@@ -30,6 +30,13 @@ import Link from 'next/link';
 
 import { Checkbox } from '@/components/ui/checkbox';
 import { CountryFlag } from '@/components/ui/country-flag';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { COUNTRIES } from '@/lib/constants/countries';
 
 export const columns: ColumnDef<Lead>[] = [
   {
@@ -124,21 +131,49 @@ export const columns: ColumnDef<Lead>[] = [
     header: 'Route',
     cell: ({ row }) => (
       <div className='text-sm flex items-center gap-1.5'>
-        {row.original.origin_country && (
-          <CountryFlag
-            countryCode={row.original.origin_country}
-            className='h-3 w-4.5 rounded-[2px]'
-          />
-        )}
-        <span>{row.original.origin_country}</span>
+        {/* Origin */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger className='flex items-center gap-1.5 cursor-default'>
+              {row.original.origin_country && (
+                <CountryFlag
+                  countryCode={row.original.origin_country}
+                  className='h-3 w-4.5 rounded-[2px]'
+                />
+              )}
+              <span>{row.original.origin_country}</span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>
+                {COUNTRIES[row.original.origin_country]?.name ||
+                  row.original.origin_country}
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
         <span className='text-muted-foreground mx-1'>→</span>
-        {row.original.destination_country && (
-          <CountryFlag
-            countryCode={row.original.destination_country}
-            className='h-3 w-4.5 rounded-[2px]'
-          />
-        )}
-        <span>{row.original.destination_country}</span>
+
+        {/* Destination */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger className='flex items-center gap-1.5 cursor-default'>
+              {row.original.destination_country && (
+                <CountryFlag
+                  countryCode={row.original.destination_country}
+                  className='h-3 w-4.5 rounded-[2px]'
+                />
+              )}
+              <span>{row.original.destination_country}</span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>
+                {COUNTRIES[row.original.destination_country]?.name ||
+                  row.original.destination_country}
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
     ),
   },

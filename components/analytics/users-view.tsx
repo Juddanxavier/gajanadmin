@@ -10,23 +10,15 @@ import {
 import { UserStatsCards } from '@/components/users/user-stats';
 import { UserTrendsChart } from '@/components/users/user-trends-chart';
 import { UserStats } from '@/lib/types';
-import Loading from '@/app/(dashboard)/analytics/loading';
 import {
   generateMockUserTrends,
   generateMockUserStats,
 } from '@/lib/utils/mock-data-generator';
+import { Skeleton } from '@/components/ui/skeleton';
 
-export default function UsersAnalyticsPage() {
+export function UsersView() {
   const [stats, setStats] = useState<UserStats | null>(null);
-  const [trends, setTrends] = useState<
-    {
-      date: string;
-      totalUsers: number;
-      activeUsers: number;
-      admins: number;
-      tenants: number;
-    }[]
-  >([]);
+  const [trends, setTrends] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -36,18 +28,15 @@ export default function UsersAnalyticsPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      // Check if mock data is enabled
       const useMockData = localStorage.getItem('use-mock-data') === 'true';
 
       if (useMockData) {
-        // Use mock data
         setStats(generateMockUserStats() as UserStats);
         setTrends(generateMockUserTrends(90));
       } else {
-        // Use real data
         const [statsResult, trendsResult] = await Promise.all([
           getUserStats(),
-          getUserDetailedTrendsAction(90), // Fetch 90 days to match default chart range
+          getUserDetailedTrendsAction(90),
         ]);
 
         if (statsResult.success && statsResult.data) {
@@ -65,18 +54,11 @@ export default function UsersAnalyticsPage() {
   };
 
   if (loading) {
-    return <Loading />;
+    return <AnalyticsSkeleton />;
   }
 
   return (
     <div className='space-y-6'>
-      <div>
-        <h1 className='text-3xl font-bold tracking-tight'>User Analytics</h1>
-        <p className='text-muted-foreground'>
-          User registration and activity metrics
-        </p>
-      </div>
-
       {stats && <UserStatsCards stats={stats} trendData={trends} />}
 
       <div className='w-full'>
@@ -84,6 +66,20 @@ export default function UsersAnalyticsPage() {
           data={trends.map((t) => ({ date: t.date, total: t.totalUsers }))}
         />
       </div>
+    </div>
+  );
+}
+
+function AnalyticsSkeleton() {
+  return (
+    <div className='space-y-4'>
+      <div className='grid gap-4 md:grid-cols-4'>
+        <Skeleton className='h-[120px] w-full' />
+        <Skeleton className='h-[120px] w-full' />
+        <Skeleton className='h-[120px] w-full' />
+        <Skeleton className='h-[120px] w-full' />
+      </div>
+      <Skeleton className='h-[300px] w-full' />
     </div>
   );
 }

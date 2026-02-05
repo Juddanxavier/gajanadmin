@@ -62,25 +62,8 @@ export const sidebarGroups: SidebarGroup[] = [
     items: [
       {
         title: 'Analytics',
-        href: '/shipments/analytics',
+        href: '/analytics',
         icon: BarChart3,
-        children: [
-          {
-            title: 'Shipment Analytics',
-            href: '/shipments/analytics',
-            icon: Activity,
-          },
-          {
-            title: 'Leads',
-            href: '/analytics/leads',
-            icon: Target,
-          },
-          {
-            title: 'Users',
-            href: '/analytics/users',
-            icon: Users,
-          },
-        ],
       },
     ],
   },

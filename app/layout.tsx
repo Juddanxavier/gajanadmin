@@ -6,6 +6,7 @@ import { ThemeProvider } from 'next-themes';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { CommandPalette } from '@/components/command-palette';
 
 const defaultUrl = process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
@@ -45,6 +46,7 @@ export default function RootLayout({
           disableTransitionOnChange>
           <TooltipProvider>
             {children}
+            <CommandPalette />
             <Toaster />
           </TooltipProvider>
         </ThemeProvider>

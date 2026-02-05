@@ -1,7 +1,7 @@
 /** @format */
 
 import { SupabaseClient } from '@supabase/supabase-js';
-import { createClient } from '@/lib/supabase/server';
+// import { createClient } from '@/lib/supabase/server';
 
 interface SendWhatsAppParams {
   shipmentId: string;
@@ -38,9 +38,9 @@ interface WhatsAppConfig {
 }
 
 export class WhatsAppService {
-  private supabase: Awaited<ReturnType<typeof createClient>>;
+  private supabase: SupabaseClient;
 
-  constructor(supabase: Awaited<ReturnType<typeof createClient>>) {
+  constructor(supabase: SupabaseClient) {
     this.supabase = supabase;
   }
 

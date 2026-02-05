@@ -26,6 +26,7 @@ import { ShipmentTrendsChart } from '@/components/dashboard/shipment-trends-char
 import { RecentActivity } from '@/components/dashboard/recent-activity';
 import { StatCard } from '@/components/dashboard/stat-card';
 import { ShipmentRealtimeListener } from '@/components/dashboard/shipment-realtime-listener';
+import { ShipmentMap } from '@/components/dashboard/shipment-map';
 import {
   getShipmentStats,
   getShipmentTrendsAction,
@@ -241,6 +242,9 @@ export default async function AdminPage() {
         </Card>
 
         {/* Row 3+: Visuals */}
+
+        {/* Shipment Map - New interactive visualization */}
+        <ShipmentMap shipments={recentShipments} />
 
         {/* Main Chart - Takes full width */}
         <div className='col-span-1 md:col-span-2 lg:col-span-4 lg:row-span-2'>

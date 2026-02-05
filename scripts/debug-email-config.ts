@@ -1,50 +1,56 @@
 /** @format */
 
-import dotenv from 'dotenv';
-dotenv.config({ path: '.env.local' });
-dotenv.config();
-
 import { createClient } from '@supabase/supabase-js';
+import * as dotenv from 'dotenv';
+import path from 'path';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
-async function main() {
-  const { data: tenants } = await supabase
-    .from('tenants')
-    .select('id, name')
-    .limit(1);
-  if (!tenants || tenants.length === 0) {
-    console.log('No tenants found.');
-    return;
-  }
-  const tenantId = tenants[0].id; // Assuming we are testing with the first tenant
+async function debug() {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
 
-  console.log(`Checking config for Tenant: ${tenantId} (${tenants[0].name})`);
+  console.log('🔍 Debugging Email Config...');
 
-  const { data: config, error } = await supabase
-    .from('tenant_notification_configs')
-    .select('*')
-    .eq('tenant_id', tenantId)
-    .eq('channel', 'email')
-    .eq('is_active', true)
+  // 1. Get the latest shipment to get a real tenant_id
+  const { data: shipment, error: shipmentError } = await supabase
+    .from('shipments')
+    .select('id, tenant_id, carrier_tracking_code')
+    .limit(1)
+    .order('created_at', { ascending: false })
     .single();
 
-  if (error) {
-    console.error('Error fetching config:', error.message);
-  } else {
-    console.log('Current Active Email Config:', config);
-    if (config.provider_id === 'smtp') {
-      console.log(
-        '⚠️  Provider is set to SMTP. If you want ZeptoMail, Update this config.',
-      );
-      console.log('SMTP User:', config.credentials?.user);
-      // Don't log pass obviously
-    } else if (config.provider_id === 'zeptomail') {
-      console.log('✅ Provider is set to ZeptoMail.');
-    }
+  if (shipmentError || !shipment) {
+    console.error('❌ Could not fetch shipment:', shipmentError);
+    return;
   }
+
+  console.log(`📦 Shipment: ${shipment.id}`);
+  console.log(`🏢 Tenant ID: ${shipment.tenant_id}`);
+
+  // 2. Check config for this tenant
+  const { data: config, error: configError } = await supabase
+    .from('tenant_notification_configs')
+    .select('*')
+    .eq('tenant_id', shipment.tenant_id)
+    .eq('channel', 'email');
+
+  if (configError) {
+    console.error('❌ Error fetching config:', configError);
+  } else if (!config || config.length === 0) {
+    console.log('⚠️ No email config found for this tenant!');
+  } else {
+    console.log('✅ Config found:', JSON.stringify(config, null, 2));
+  }
+
+  // 3. List all configs to see what exists
+  const { data: allConfigs } = await supabase
+    .from('tenant_notification_configs')
+    .select('tenant_id, channel, is_active');
+
+  console.log('📋 All Notification Configs:', allConfigs);
 }
 
-main();
+debug();

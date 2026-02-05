@@ -334,53 +334,54 @@ export async function searchUsers(query: string) {
     const { isUserAdmin } = await ensureStaffAccess();
     const tenantIds = await getUserTenantIds();
 
-    const adminClient = createAdminClient();
-    const {
-      data: { users },
-      error,
-    } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 100 });
-    if (error) throw error;
+    const supabase = await createClient(); // Service role or authenticated client? Use Admin for broad search if needed, but RLS should handle it.
+    // Actually, we need to search across ALL users that this staff has access to.
 
-    const supabase = await createClient();
+    // 1. Get relevant User IDs from user_roles
     let roleQuery = supabase
       .from('user_roles')
       .select('user_id')
       .eq('role', 'customer');
+
     if (!isUserAdmin && tenantIds.length > 0) {
       roleQuery = roleQuery.in('tenant_id', tenantIds);
     }
+
     const { data: validRoles, error: roleError } = await roleQuery;
+
     if (roleError) throw roleError;
+    const validUserIds = validRoles?.map((r) => r.user_id) || [];
 
-    const validUserIds = new Set(validRoles?.map((r) => r.user_id) || []);
-    const lowerQ = query.toLowerCase().trim();
+    if (validUserIds.length === 0) {
+      return successResponse([]);
+    }
 
-    const matches = users
-      .filter((u) => validUserIds.has(u.id))
-      .map((u) => {
-        const email = u.email?.toLowerCase() || '';
-        const name = (
-          u.user_metadata?.full_name ||
-          u.user_metadata?.name ||
-          ''
-        ).toLowerCase();
-        let score = 0;
-        if (email.includes(lowerQ)) score += 50;
-        if (name.includes(lowerQ)) score += 50;
-        return { user: u, score };
-      })
-      .filter((m) => m.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 20)
-      .map((m) => ({
-        id: m.user.id,
-        email: m.user.email,
-        name: m.user.user_metadata?.full_name || m.user.email,
-        label: `${m.user.user_metadata?.full_name || m.user.email} (${m.user.email})`,
-      }));
+    // 2. Search Profiles matched by IDs
+    // We assume 'profiles' table has 'display_name' and 'email' (from ProfileService check)
+    // Need to handle case-insensitive search. ILIKE is good.
+    // OR condition: name ILIKE %q% OR email ILIKE %q%
+
+    const { data: profiles, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, email, display_name, phone')
+      .in('id', validUserIds)
+      .or(`display_name.ilike.%${query}%,email.ilike.%${query}%`)
+      .limit(20);
+
+    if (profileError) throw profileError;
+
+    // 3. Map to format
+    const matches = profiles.map((p) => ({
+      id: p.id,
+      email: p.email,
+      name: p.display_name || p.email,
+      phone: p.phone,
+      label: `${p.display_name || p.email} (${p.email})`,
+    }));
 
     return successResponse(matches);
   } catch (error: any) {
+    console.error('searchUsers Error:', error);
     return errorResponse(error);
   }
 }

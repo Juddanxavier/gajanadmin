@@ -1,6 +1,6 @@
 /** @format */
 
-import { createClient } from '@/lib/supabase/server';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { render } from '@react-email/render';
 import nodemailer from 'nodemailer';
 import QRCode from 'qrcode';
@@ -48,9 +48,9 @@ interface EmailTemplate {
 }
 
 export class EmailService {
-  private supabase: Awaited<ReturnType<typeof createClient>>;
+  private supabase: SupabaseClient;
 
-  constructor(supabase: Awaited<ReturnType<typeof createClient>>) {
+  constructor(supabase: SupabaseClient) {
     this.supabase = supabase;
   }
 
@@ -136,6 +136,10 @@ export class EmailService {
       subject = this.replaceVariables(subjectTemplate, templateVars);
 
       // 5. Render
+      // @ts-ignore
+      const currency =
+        params.invoiceCurrency || emailConfig.settings?.currency || 'USD';
+
       emailHtml = await render(
         ShipmentNotificationEmail({
           recipientName,
@@ -145,12 +149,16 @@ export class EmailService {
           trackingUrl,
           qrCodeDataUrl,
           invoiceAmount: params.invoiceAmount,
-          invoiceCurrency: params.invoiceCurrency,
+          invoiceCurrency: currency,
           companyName: emailConfig.config.company_name,
           logoUrl: emailConfig.logo_url,
           customHeading,
           customMessage,
           deliveryDate: params.deliveryDate,
+          // @ts-ignore
+          companyAddress: emailConfig.settings?.company_address,
+          // @ts-ignore
+          brandColor: emailConfig.settings?.brand_color,
         }),
       );
 
@@ -307,10 +315,12 @@ export class EmailService {
       .eq('is_active', true)
       .single();
 
-    // 2. Fetch Company Settings (Logo)
+    // 2. Fetch Company Settings (Logo, Name, Currency, Branding)
     const settingsPromise = this.supabase
       .from('settings')
-      .select('company_logo_url')
+      .select(
+        'company_name, company_logo_url, currency, date_format, company_address, brand_color',
+      )
       .eq('tenant_id', tenantId)
       .single();
 
@@ -345,8 +355,22 @@ export class EmailService {
     const config = configResult.data as EmailConfig;
 
     // Merge settings
-    if (settingsResult.data?.company_logo_url) {
-      config.logo_url = settingsResult.data.company_logo_url;
+    if (settingsResult.data) {
+      if (settingsResult.data.company_logo_url) {
+        config.logo_url = settingsResult.data.company_logo_url;
+      }
+      // Override company name from settings if available
+      if (settingsResult.data.company_name) {
+        config.config.company_name = settingsResult.data.company_name;
+      }
+      // Store other settings in config for access
+      // @ts-ignore
+      config.settings = {
+        currency: settingsResult.data.currency,
+        date_format: settingsResult.data.date_format,
+        company_address: settingsResult.data.company_address,
+        brand_color: settingsResult.data.brand_color,
+      };
     }
 
     // Merge template

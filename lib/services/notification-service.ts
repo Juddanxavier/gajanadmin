@@ -43,32 +43,99 @@ export class NotificationService {
 
   /**
    * Orchestrates sending notifications across all enabled channels
+   * Enqueues notifications to be processed by the background worker
    */
   async sendNotifications(payload: NotificationPayload) {
     const results: Record<string, NotificationResult> = {};
 
-    // 1. Send Email (if eligible)
+    // Fetch Settings
+    const { data: settings } = await this.supabase
+      .from('settings')
+      .select('notification_triggers, email_notifications_enabled')
+      .eq('tenant_id', payload.tenantId)
+      .single();
+
+    const allowedTriggers: string[] = settings?.notification_triggers || [
+      'delivered',
+      'exception',
+      'out_for_delivery',
+    ];
+    const isEmailEnabled = settings?.email_notifications_enabled !== false;
+
+    // Check if status is allowed
+    // Handle 'created' status which might map to 'pending' or be explicit
+    const status = payload.status === 'created' ? 'pending' : payload.status;
+
+    // Explicit check for "all" or specific status
+    const isTriggerAllowed =
+      allowedTriggers.includes('all') || allowedTriggers.includes(status);
+
+    // IDEMPOTENCY CHECK
+    // Prevent duplicate emails for the same event within 5 minutes (e.g. from flaky webhooks)
+    if (isTriggerAllowed) {
+      const { data: recent } = await this.supabase
+        .from('notification_queue')
+        .select('id')
+        .eq('shipment_id', payload.shipmentId)
+        .eq('event_type', payload.status)
+        .gt('created_at', new Date(Date.now() - 5 * 60 * 1000).toISOString())
+        .limit(1);
+
+      if (recent && recent.length > 0) {
+        console.warn(
+          `[NotificationService] Duplicate notification suppressed for ${payload.shipmentId} / ${payload.status}`,
+        );
+        return {
+          email: {
+            success: false,
+            skipped: true,
+            message: 'Duplicate suppressed (Idempotency)',
+          },
+          whatsapp: {
+            success: false,
+            skipped: true,
+            message: 'Duplicate suppressed (Idempotency)',
+          },
+        };
+      }
+    }
+
+    // 1. Queue Email
     if (payload.recipientEmail) {
-      console.log(
-        `[NotificationService] Dispatching Email for ${payload.trackingCode}`,
-      );
-      try {
-        const res = await this.emailService.sendShipmentNotification({
-          shipmentId: payload.shipmentId,
-          tenantId: payload.tenantId,
-          status: payload.status,
-          recipientEmail: payload.recipientEmail,
-          recipientName: payload.recipientName || 'Customer',
-          trackingCode: payload.trackingCode,
-          referenceCode: payload.referenceCode,
-          invoiceAmount: payload.invoiceAmount,
-          invoiceCurrency: payload.invoiceCurrency,
-          deliveryDate: payload.deliveryDate,
-        });
-        results.email = { success: res.success, message: res.message };
-      } catch (error: any) {
-        console.error('[NotificationService] Email Failed:', error);
-        results.email = { success: false, error: error.message };
+      if (isEmailEnabled && isTriggerAllowed) {
+        console.log(
+          `[NotificationService] Queuing Email for ${payload.trackingCode}`,
+        );
+        const { error } = await this.supabase
+          .from('notification_queue')
+          .insert({
+            shipment_id: payload.shipmentId,
+            tenant_id: payload.tenantId,
+            event_type: payload.status,
+            channel: 'email',
+            status: 'pending',
+            metadata: payload,
+          });
+
+        if (error) {
+          console.error('[NotificationService] Failed to queue email:', error);
+          results.email = {
+            success: false,
+            error: 'Queue Insert Failed: ' + error.message,
+          };
+        } else {
+          results.email = { success: true, message: 'Queued' };
+        }
+      } else {
+        results.email = {
+          success: false,
+          skipped: true,
+          message: !isEmailEnabled
+            ? 'Email disabled'
+            : !isTriggerAllowed
+              ? 'Trigger disabled'
+              : 'No email provided',
+        };
       }
     } else {
       results.email = {
@@ -78,16 +145,75 @@ export class NotificationService {
       };
     }
 
-    // 2. Send WhatsApp (Priority over SMS)
+    // 2. Queue WhatsApp
     if (payload.recipientPhone) {
-      console.log(
-        `[NotificationService] Dispatching WhatsApp for ${payload.trackingCode}`,
-      );
-      try {
+      if (isTriggerAllowed) {
+        console.log(
+          `[NotificationService] Queuing WhatsApp for ${payload.trackingCode}`,
+        );
+        const { error } = await this.supabase
+          .from('notification_queue')
+          .insert({
+            shipment_id: payload.shipmentId,
+            tenant_id: payload.tenantId,
+            event_type: payload.status,
+            channel: 'whatsapp',
+            status: 'pending',
+            metadata: payload,
+          });
+
+        if (error) {
+          console.error(
+            '[NotificationService] Failed to queue whatsapp:',
+            error,
+          );
+          results.whatsapp = {
+            success: false,
+            error: 'Queue Insert Failed: ' + error.message,
+          };
+        } else {
+          results.whatsapp = { success: true, message: 'Queued' };
+        }
+      } else {
+        results.whatsapp = {
+          success: false,
+          skipped: true,
+          message: 'Trigger disabled',
+        };
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Process a single queue item (Called by Cron API)
+   */
+  async processQueueItem(
+    item: any,
+  ): Promise<{ success: boolean; error?: string }> {
+    const payload = item.metadata as NotificationPayload;
+
+    try {
+      if (item.channel === 'email') {
+        const res = await this.emailService.sendShipmentNotification({
+          shipmentId: payload.shipmentId,
+          tenantId: payload.tenantId,
+          status: payload.status,
+          recipientEmail: payload.recipientEmail!,
+          recipientName: payload.recipientName || 'Customer',
+          trackingCode: payload.trackingCode,
+          referenceCode: payload.referenceCode,
+          invoiceAmount: payload.invoiceAmount,
+          invoiceCurrency: payload.invoiceCurrency,
+          deliveryDate: payload.deliveryDate,
+        });
+        return { success: res.success, error: res.message };
+      } else if (item.channel === 'whatsapp') {
         const res = await this.whatsappService.sendShipmentNotification({
           shipmentId: payload.shipmentId,
           tenantId: payload.tenantId,
-          recipientPhone: payload.recipientPhone,
+          recipientPhone: payload.recipientPhone!,
           recipientName: payload.recipientName || 'Customer',
           trackingCode: payload.trackingCode,
           status: payload.status,
@@ -96,13 +222,11 @@ export class NotificationService {
           tenantName: payload.tenantName,
           carrier: payload.carrier,
         });
-        results.whatsapp = { success: res.success, message: res.message };
-      } catch (error: any) {
-        console.error('[NotificationService] WhatsApp Failed:', error);
-        results.whatsapp = { success: false, error: error.message };
+        return { success: res.success, error: res.message };
       }
+      return { success: false, error: 'Unknown channel' };
+    } catch (error: any) {
+      return { success: false, error: error.message };
     }
-
-    return results;
   }
 }

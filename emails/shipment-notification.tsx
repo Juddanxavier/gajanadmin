@@ -13,6 +13,7 @@ import {
   Text,
   Row,
   Column,
+  Hr,
 } from '@react-email/components';
 import * as React from 'react';
 
@@ -29,28 +30,33 @@ interface ShipmentNotificationEmailProps {
   // New customizable props
   logoUrl?: string;
   companyAddress?: string;
-  companyPhone?: string;
+  invoiceAmount?: number;
+  invoiceCurrency?: string;
   customHeading?: string;
   customMessage?: string;
   deliveryDate?: string;
+  companyPhone?: string;
+  companyAddress?: string;
+  brandColor?: string;
 }
 
 export const ShipmentNotificationEmail = ({
-  recipientName = 'Customer',
+  recipientName = 'Valued Customer',
   status = 'in_transit',
-  trackingNumber = 'TRACK123456',
-  referenceCode = 'REF123',
-  trackingUrl = 'https://example.com/track/REF123',
+  trackingNumber = '1234567890',
+  referenceCode = 'ORD-123',
+  trackingUrl = 'https://track123.com/ORD-123',
   qrCodeDataUrl = '',
   invoiceAmount,
   invoiceCurrency = 'USD',
-  companyName = 'Your Company',
+  companyName = 'Acme Logistics',
   logoUrl,
   companyAddress,
   companyPhone,
   customHeading,
   customMessage,
   deliveryDate,
+  brandColor = '#2563EB', // Default Blue
 }: ShipmentNotificationEmailProps) => {
   const previewText = `${getPreviewText(status)}${invoiceAmount ? ` - Amount: ${invoiceCurrency} ${invoiceAmount.toFixed(2)}` : ''}`;
   const {
@@ -63,132 +69,110 @@ export const ShipmentNotificationEmail = ({
   const title = customHeading || defaultTitle;
   const message = customMessage || defaultMessage;
 
+  // Dynamic Styles
+  const dynamicButton = { ...button, backgroundColor: brandColor };
+  const dynamicPill = {
+    ...statusPill,
+    backgroundColor: '#EFF6FF',
+    color: brandColor,
+  }; // Keep light blue bg for pill
+  const dynamicValueLink = { ...valueLink, color: brandColor };
+  const dynamicSectionHeading = {
+    ...sectionHeading,
+    borderLeft: `3px solid ${brandColor}`,
+  };
+
   return (
     <Html>
       <Head />
       <Preview>{previewText}</Preview>
       <Body style={main}>
         <Container style={container}>
-          {/* Company Logo - Centered at top */}
-          {logoUrl && (
-            <Section style={logoSection}>
+          {/* Header: Logo Alignment */}
+          <Section style={header}>
+            {logoUrl ? (
               <Img
                 src={logoUrl}
-                width='150'
-                height='50'
+                width='120' // Moderate size, professionally sized
                 alt={companyName}
                 style={logo}
               />
-            </Section>
-          )}
-
-          {/* Header with gradient */}
-          <Section style={{ ...header, background: color }}>
-            <Heading style={h1}>{title}</Heading>
+            ) : (
+              <Text style={logoText}>{companyName}</Text>
+            )}
           </Section>
 
-          {/* Main content */}
-          <Section style={content}>
-            <Text style={greeting}>Hi {recipientName},</Text>
-            <Text style={paragraph}>{message}</Text>
+          {/* Main Card */}
+          <Section style={card}>
+            {/* Status Pill & Headline */}
+            <Section style={{ marginBottom: '24px' }}>
+              <div style={dynamicPill}>{status.replace(/_/g, ' ')}</div>
+              <Heading style={h1}>{title}</Heading>
+              <Text style={paragraph}>{message}</Text>
 
-            {/* Invoice Amount Highlight - Show first for visibility */}
-            {invoiceAmount && (
-              <Section style={invoiceHighlight}>
-                <Text style={invoiceLabel}>Total Amount</Text>
-                <Heading style={invoiceAmountStyle}>
-                  <span
-                    style={{
-                      fontSize: '20px',
-                      marginRight: '6px',
-                      fontWeight: '600',
-                    }}>
-                    {invoiceCurrency}
-                  </span>
-                  {invoiceAmount.toFixed(2)}
-                </Heading>
-              </Section>
-            )}
-
-            {/* QR Code for initial tracking */}
-            {(status === 'info_received' || status === 'pending') &&
-              qrCodeDataUrl && (
-                <Section style={qrSection}>
-                  <Text style={qrTitle}>Scan to Track Your Package</Text>
-                  <Img
-                    src={qrCodeDataUrl}
-                    alt='QR Code for Tracking'
-                    width='180'
-                    height='180'
-                    style={qrCode}
-                  />
-                  <Text style={qrHint}>Use your phone camera to scan</Text>
-                </Section>
-              )}
-
-            {/* Tracking Details Card */}
-            <Section style={trackingCard}>
-              <Heading as='h3' style={cardTitle}>
-                Shipment Details
-              </Heading>
-
-              <Section style={detailsGrid}>
-                <Row style={detailRow}>
-                  <Column style={detailLabel}>
-                    <Text style={labelText}>Tracking Number</Text>
-                  </Column>
-                  <Column style={detailValue}>
-                    <Text style={valueText}>{referenceCode}</Text>
-                  </Column>
-                </Row>
-
-                <Row style={detailRow}>
-                  <Column style={detailLabel}>
-                    <Text style={labelText}>Status</Text>
-                  </Column>
-                  <Column style={detailValue}>
-                    <Text
-                      style={{
-                        ...valueText,
-                        textTransform: 'capitalize',
-                        color: '#667eea',
-                        fontWeight: '700',
-                      }}>
-                      {status.replace(/_/g, ' ')}
-                    </Text>
-                  </Column>
-                </Row>
-
-                {deliveryDate && (
-                  <Row style={detailRow}>
-                    <Column style={detailLabel}>
-                      <Text style={labelText}>Delivery Date</Text>
-                    </Column>
-                    <Column style={detailValue}>
-                      <Text style={valueText}>{deliveryDate}</Text>
-                    </Column>
-                  </Row>
-                )}
-              </Section>
+              <Text style={paragraph}>
+                Hi{' '}
+                <span style={{ fontWeight: 600, color: '#111827' }}>
+                  {recipientName}
+                </span>
+                , your order has been updated.
+              </Text>
             </Section>
 
-            {/* CTA Button */}
-            <Section style={buttonContainer}>
-              <Link href={trackingUrl} style={button}>
-                Track Your Package →
+            {/* Primary Action */}
+            <Section style={{ marginBottom: '32px' }}>
+              <Link href={trackingUrl} style={dynamicButton}>
+                Track Package
               </Link>
             </Section>
 
-            {/* Help Text */}
-            <Text style={helpText}>
-              Need help? Contact our support team anytime.
-            </Text>
+            <Hr style={divider} />
+
+            {/* Shipment Details Grid */}
+            <Section style={detailsSection}>
+              <Heading as='h3' style={dynamicSectionHeading}>
+                Shipment Details
+              </Heading>
+
+              <Row style={row}>
+                <Column style={column}>
+                  <Text style={label}>Tracking Number</Text>
+                  <Link href={trackingUrl} style={dynamicValueLink}>
+                    {trackingNumber}
+                  </Link>
+                </Column>
+                <Column style={column}>
+                  <Text style={label}>Carrier</Text>
+                  <Text style={value}>FedEx</Text>
+                </Column>
+              </Row>
+
+              <Row style={row}>
+                <Column style={column}>
+                  <Text style={label}>Est. Delivery</Text>
+                  <Text style={value}>{deliveryDate || 'Pending'}</Text>
+                </Column>
+                <Column style={column}>
+                  <Text style={label}>Reference</Text>
+                  <Text style={value}>{referenceCode}</Text>
+                </Column>
+              </Row>
+            </Section>
           </Section>
 
-          {/* Footer */}
+          {/* Clean Footer */}
           <Section style={footer}>
             <Text style={footerText}>
-              © {new Date().getFullYear()} {companyName}. All rights reserved.
+              Sent by {companyName} • {companyAddress || '123 Business St, CA'}
+            </Text>
+            <Text style={footerText}>
+              <Link href='#' style={footerLink}>
+                Unsubscribe
+              </Link>{' '}
+              •{' '}
+              <Link href='#' style={footerLink}>
+                Contact Support
+              </Link>
             </Text>
           </Section>
         </Container>
@@ -199,272 +183,167 @@ export const ShipmentNotificationEmail = ({
 
 export default ShipmentNotificationEmail;
 
-// Helper functions
+// Helper functions (Unchanged)
 function getPreviewText(status: string): string {
-  switch (status) {
-    case 'info_received':
-    case 'pending':
-      return 'Your shipment is being tracked!';
-    case 'delivered':
-      return 'Package delivered successfully!';
-    case 'out_for_delivery':
-      return 'Your package is out for delivery!';
-    case 'exception':
-    case 'failed':
-      return 'Action required - Shipment issue';
-    default:
-      return `Shipment update: ${status.replace(/_/g, ' ')}`;
-  }
+  return `Shipment Update: ${status.replace(/_/g, ' ')}`;
 }
 
-function getStatusContent(status: string): {
-  title: string;
-  message: string;
-  color: string;
-} {
-  switch (status) {
-    case 'info_received':
-    case 'pending':
-      return {
-        title: '📦 Your Shipment is Being Tracked!',
-        message:
-          "Great news! We've received your shipment information and it's now being tracked. You can monitor its progress using the tracking link below.",
-        color: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      };
-    case 'delivered':
-      return {
-        title: '✅ Package Delivered Successfully!',
-        message:
-          'Your package has been delivered! We hope you enjoy your purchase.',
-        color: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
-      };
-    case 'out_for_delivery':
-      return {
-        title: '🚚 Out for Delivery!',
-        message: 'Your package is out for delivery and should arrive soon!',
-        color: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-      };
-    case 'exception':
-    case 'failed':
-      return {
-        title: '⚠️ Action Required - Shipment Issue',
-        message:
-          "There's an issue with your shipment that requires attention. Please contact our support team for assistance.",
-        color: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-      };
-    default:
-      return {
-        title: `📦 Shipment Update: ${status.replace(/_/g, ' ')}`,
-        message:
-          'Your shipment status has been updated. Check the details below for more information.',
-        color: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      };
-  }
+function getStatusContent(status: string) {
+  // Neutral/Professional Copy
+  return {
+    title: `Shipment ${status.replace(/_/g, ' ')}`,
+    message: `The current status of your shipment is ${status.replace(/_/g, ' ')}. Use the link below to track the progress.`,
+    color: '#000000',
+  };
 }
 
-// Styles
+// Modern Vercel-esque Styles
 const main = {
-  backgroundColor: '#f5f5f5',
+  backgroundColor: '#F3F4F6', // Slight gray bg
   fontFamily:
-    '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
+    '"SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif',
+  padding: '40px 0',
 };
 
 const container = {
-  backgroundColor: '#ffffff',
   margin: '0 auto',
-  marginBottom: '64px',
-  maxWidth: '600px',
-};
-
-const logoSection = {
-  padding: '20px 0',
-  textAlign: 'center' as const,
-};
-
-const logo = {
-  margin: '0 auto',
-  objectFit: 'contain' as const,
-};
-
-const header = {
-  padding: '40px 30px',
-  textAlign: 'center' as const,
-  borderRadius: '10px 10px 0 0',
-};
-
-const h1 = {
-  color: '#ffffff',
-  fontSize: '24px',
-  fontWeight: 'bold',
-  margin: '0',
-  padding: '0',
-};
-
-const h3 = {
-  color: '#667eea',
-  fontSize: '18px',
-  fontWeight: 'bold',
-  marginTop: '0',
-  marginBottom: '16px',
-};
-
-const content = {
-  padding: '40px 30px',
-};
-
-const greeting = {
-  fontSize: '20px',
-  fontWeight: '600',
-  color: '#1a1a1a',
-  marginBottom: '8px',
-};
-
-const paragraph = {
-  fontSize: '16px',
-  lineHeight: '24px',
-  color: '#4a5568',
-  marginTop: '0',
-  marginBottom: '24px',
-};
-
-const qrSection = {
-  backgroundColor: '#f7fafc',
-  padding: '32px',
-  borderRadius: '12px',
-  textAlign: 'center' as const,
-  margin: '24px 0',
-  border: '1px solid #e2e8f0',
-};
-
-const qrTitle = {
-  fontSize: '16px',
-  fontWeight: '600',
-  color: '#2d3748',
-  marginBottom: '16px',
-};
-
-const qrCode = {
-  margin: '16px auto',
-  display: 'block',
-  borderRadius: '8px',
-};
-
-const qrHint = {
-  fontSize: '13px',
-  color: '#718096',
-  marginTop: '12px',
-};
-
-const trackingCard = {
-  backgroundColor: '#ffffff',
-  padding: '24px',
-  borderRadius: '12px',
-  margin: '24px 0',
-  border: '2px solid #e2e8f0',
-};
-
-const cardTitle = {
-  color: '#2d3748',
-  fontSize: '18px',
-  fontWeight: '700',
-  marginTop: '0',
-  marginBottom: '20px',
-};
-
-const detailsGrid = {
+  maxWidth: '580px',
   width: '100%',
 };
 
-const detailRow = {
-  marginBottom: '16px',
-  paddingBottom: '16px',
-  borderBottom: '1px solid #f7fafc',
+const header = {
+  marginBottom: '24px',
+  padding: '0 8px',
 };
 
-const detailLabel = {
-  width: '40%',
-  verticalAlign: 'top' as const,
+const logo = {
+  display: 'block',
+  maxWidth: '140px',
+  maxHeight: '50px',
+  objectFit: 'contain' as const,
 };
 
-const labelText = {
-  fontSize: '14px',
-  color: '#718096',
-  fontWeight: '500',
+const logoText = {
+  fontSize: '20px',
+  fontWeight: '700',
+  color: '#111827',
   margin: '0',
+  letterSpacing: '-0.5px',
 };
 
-const detailValue = {
-  width: '60%',
-  verticalAlign: 'top' as const,
-  textAlign: 'right' as const,
-};
-
-const valueText = {
-  fontSize: '15px',
-  color: '#2d3748',
-  fontWeight: '600',
-  margin: '0',
-};
-
-const invoiceHighlight = {
-  backgroundColor: '#f0f4ff',
-  padding: '24px',
+const card = {
+  backgroundColor: '#FFFFFF',
   borderRadius: '12px',
-  border: '2px solid #667eea',
-  textAlign: 'center' as const,
-  margin: '24px 0',
+  padding: '40px',
+  boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+  border: '1px solid #E5E7EB',
 };
 
-const invoiceLabel = {
-  fontSize: '14px',
-  color: '#4a5568',
-  fontWeight: '500',
-  margin: '0 0 8px 0',
+const statusPill = {
+  display: 'inline-block',
+  backgroundColor: '#EFF6FF', // Very light blue bg
+  color: '#2563EB', // Default Fallback if dynamic fails
+  padding: '4px 12px',
+  borderRadius: '999px',
+  fontSize: '12px',
+  fontWeight: '600',
   textTransform: 'uppercase' as const,
+  marginBottom: '16px',
   letterSpacing: '0.5px',
 };
 
-const invoiceAmountStyle = {
-  margin: '0',
-  fontSize: '36px',
-  color: '#667eea',
-  fontWeight: '800',
-  lineHeight: '1',
+const h1 = {
+  fontSize: '24px',
+  fontWeight: '700',
+  color: '#111827',
+  margin: '0 0 16px',
+  letterSpacing: '-0.5px',
+  lineHeight: '1.2',
 };
 
-const buttonContainer = {
-  textAlign: 'center' as const,
-  margin: '30px 0',
+const paragraph = {
+  fontSize: '15px',
+  lineHeight: '24px',
+  color: '#4B5563',
+  marginBottom: '16px',
 };
 
 const button = {
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-  borderRadius: '8px',
+  backgroundColor: '#2563EB', // Default fallback
   color: '#ffffff',
-  display: 'inline-block',
-  fontSize: '16px',
-  fontWeight: '600',
+  borderRadius: '6px',
+  padding: '12px 24px',
+  fontSize: '14px',
+  fontWeight: '500',
   textDecoration: 'none',
-  textAlign: 'center' as const,
-  padding: '14px 32px',
-  boxShadow: '0 4px 6px rgba(102, 126, 234, 0.25)',
+  display: 'inline-block',
+  boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
 };
 
-const helpText = {
+const divider = {
+  borderColor: '#E5E7EB',
+  margin: '32px 0',
+};
+
+const detailsSection = {
+  marginTop: '24px',
+};
+
+const sectionHeading = {
   fontSize: '14px',
-  color: '#718096',
-  textAlign: 'center' as const,
-  marginTop: '32px',
-  marginBottom: '0',
+  fontWeight: '600',
+  color: '#111827',
+  textTransform: 'uppercase' as const,
+  letterSpacing: '0.5px',
+  marginBottom: '16px',
+  borderLeft: `3px solid #2563EB`, // Fallback
+  paddingLeft: '12px',
+};
+
+const row = {
+  marginBottom: '12px',
+};
+
+const column = {
+  width: '50%',
+  verticalAlign: 'top' as const,
+};
+
+const label = {
+  fontSize: '12px',
+  color: '#6B7280',
+  textTransform: 'uppercase' as const,
+  marginBottom: '4px',
+  letterSpacing: '0.5px',
+};
+
+const value = {
+  fontSize: '14px',
+  color: '#111827',
+  fontWeight: '500',
+  margin: '0',
+};
+
+const valueLink = {
+  fontSize: '14px',
+  color: '#2563EB',
+  fontWeight: '500',
+  textDecoration: 'none',
+  margin: '0',
 };
 
 const footer = {
   textAlign: 'center' as const,
-  padding: '20px',
+  marginTop: '32px',
 };
 
 const footerText = {
-  color: '#999999',
   fontSize: '12px',
-  lineHeight: '16px',
+  color: '#9CA3AF',
+  marginBottom: '8px',
+};
+
+const footerLink = {
+  color: '#6B7280',
+  textDecoration: 'underline',
 };

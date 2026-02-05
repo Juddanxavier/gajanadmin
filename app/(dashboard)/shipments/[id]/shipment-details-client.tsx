@@ -155,6 +155,26 @@ export function ShipmentDetailsClient({
                 className='capitalize px-3 py-1 text-sm'>
                 {shipment.status.replace('_', ' ')}
               </Badge>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={async () => {
+                  const promise = import('../actions').then((mod) =>
+                    mod.sendShipmentNotificationAction(shipment.id),
+                  );
+                  toast.promise(promise, {
+                    loading: 'Sending notification...',
+                    success: (res) => {
+                      if (res.success)
+                        return 'Notification queued successfully';
+                      throw new Error(res.error);
+                    },
+                    error: (err) => `Failed to send: ${err.message}`,
+                  });
+                }}>
+                <Mail className='mr-2 h-4 w-4' />
+                Resend Notification
+              </Button>
               <Button variant='outline' size='sm' onClick={handleSync}>
                 <RefreshCw className='mr-2 h-4 w-4' />
                 Sync Status

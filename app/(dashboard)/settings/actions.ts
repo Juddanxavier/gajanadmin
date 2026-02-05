@@ -134,44 +134,29 @@ export async function updateSettings(updates: any, tenantId?: string) {
 
     const adminClient = createAdminClient();
 
-    // Check if settings exist
-    const { data: existing } = await adminClient
+    // Prepare updates: Remove 'id' to prevent PK collisions and ensure tenant_id is set
+    const { id, ...cleanUpdates } = updates;
+
+    const { data, error } = await adminClient
       .from('settings')
-      .select('id')
-      .eq('tenant_id', targetId)
+      .upsert(
+        {
+          tenant_id: targetId,
+          ...cleanUpdates,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'tenant_id' },
+      )
+      .select()
       .single();
 
-    let result;
-    if (existing) {
-      // Update existing settings
-      result = await adminClient
-        .from('settings')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('tenant_id', targetId)
-        .select()
-        .single();
-    } else {
-      // Create new settings
-      result = await adminClient
-        .from('settings')
-        .insert({
-          tenant_id: targetId,
-          ...updates,
-        })
-        .select()
-        .single();
-    }
-
-    if (result.error) throw result.error;
+    if (error) throw error;
 
     // Clear settings cache for this tenant
     clearSettingsCache(targetId);
 
     revalidatePath('/settings');
-    return { success: true, data: result.data };
+    return { success: true, data };
   } catch (error: any) {
     console.error('[updateSettings] Error:', error);
     return { success: false, error: error.message };
@@ -315,7 +300,6 @@ function getDefaultSettings() {
     auto_archive_days: 90,
     data_retention_days: 365,
     export_format: 'csv',
-    custom_fields: [],
   };
 }
 
