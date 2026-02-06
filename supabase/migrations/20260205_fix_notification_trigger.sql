@@ -15,15 +15,14 @@ BEGIN
   -- Determine if we should notify
   should_notify := false;
 
-  -- Case 1: INSERT (New Shipment)
+  -- Case 1: INSERT (New Shipment) - Always notify "Shipment Created"
   IF (TG_OP = 'INSERT') THEN
-    IF NEW.status IN ('delivered', 'info_received', 'exception', 'out_for_delivery', 'in_transit') THEN
-        should_notify := true;
-    END IF;
+      should_notify := true;
   
-  -- Case 2: UPDATE
+  -- Case 2: UPDATE - Only notify for key outcomes
   ELSIF (TG_OP = 'UPDATE') THEN
-    IF OLD.status IS DISTINCT FROM NEW.status AND NEW.status IN ('delivered', 'info_received', 'exception', 'out_for_delivery', 'in_transit') THEN
+    -- Only if status CHANGED and is one of the target statuses
+    IF OLD.status IS DISTINCT FROM NEW.status AND NEW.status IN ('delivered', 'failed', 'exception') THEN
         should_notify := true;
     END IF;
   END IF;

@@ -429,23 +429,50 @@ export async function updateNotificationConfig(config: any, tenantId?: string) {
 
     const adminClient = createAdminClient();
 
-    // Upsert config
-    const { data, error } = await adminClient
+    // Check for existing config by CHANNEL
+    const channel = config.channel || 'email';
+    const { data: existing } = await adminClient
       .from('tenant_notification_configs')
-      .upsert(
-        {
-          tenant_id: targetId,
-          channel: config.channel || 'email',
+      .select('id')
+      .eq('tenant_id', targetId)
+      .eq('channel', channel)
+      .single();
+
+    let data, error;
+
+    if (existing) {
+      // Update existing
+      const result = await adminClient
+        .from('tenant_notification_configs')
+        .update({
           provider_id: config.provider_id,
           credentials: config.credentials,
           config: config.config,
           is_active: true,
           updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'tenant_id, channel' },
-      )
-      .select()
-      .single();
+        })
+        .eq('id', existing.id)
+        .select()
+        .single();
+      data = result.data;
+      error = result.error;
+    } else {
+      // Insert new
+      const result = await adminClient
+        .from('tenant_notification_configs')
+        .insert({
+          tenant_id: targetId,
+          channel: channel,
+          provider_id: config.provider_id,
+          credentials: config.credentials,
+          config: config.config,
+          is_active: true,
+        })
+        .select()
+        .single();
+      data = result.data;
+      error = result.error;
+    }
 
     if (error) throw error;
 

@@ -1,3 +1,5 @@
+/** @format */
+
 'use client';
 
 import { useEffect } from 'react';
@@ -18,23 +20,29 @@ export default function Error({
   }, [error]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4 text-center">
-      <h2 className="text-2xl font-bold">Something went wrong!</h2>
-      <p className="text-muted-foreground max-w-md">
+    <div className='flex flex-col items-center justify-center min-h-[50vh] space-y-4 text-center'>
+      <h2 className='text-2xl font-bold'>Something went wrong!</h2>
+      <p className='text-muted-foreground max-w-md'>
         An unexpected error occurred. Our team has been notified.
       </p>
-      <div className="flex gap-4">
-        <Button onClick={() => window.location.href = '/'}>
-            Go Home
-        </Button>
+      {process.env.NODE_ENV === 'development' && (
+        <div className='bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-md text-left text-sm font-mono overflow-auto max-w-2xl w-full'>
+          <p className='font-bold mb-2'>Error Details:</p>
+          <p>{error.message}</p>
+          {error.digest && (
+            <p className='text-xs mt-2 opacity-70'>Digest: {error.digest}</p>
+          )}
+        </div>
+      )}
+      <div className='flex gap-4'>
+        <Button onClick={() => (window.location.href = '/')}>Go Home</Button>
         <Button
-            variant="outline"
-            onClick={
+          variant='outline'
+          onClick={
             // Attempt to recover by trying to re-render the segment
             () => reset()
-            }
-        >
-            Try again
+          }>
+          Try again
         </Button>
       </div>
     </div>

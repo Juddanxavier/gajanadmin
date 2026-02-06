@@ -260,7 +260,7 @@ export interface ChangePasswordInput {
 
 // Profile stats
 export interface ProfileStats {
-  total_shipments: number;
+  // total_shipments: number; // Removed
   total_leads: number;
   member_since: string;
   last_active: string | null;

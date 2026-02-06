@@ -23,42 +23,9 @@ interface RecentActivityProps {
 export function RecentActivity({ initialData }: RecentActivityProps) {
   const [activities, setActivities] = useState(initialData);
 
+  // Shipment logic removed
   useEffect(() => {
-    const supabase = createClient();
-
-    const channel = supabase
-      .channel('dashboard-shipments')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'shipments' },
-        (payload) => {
-          // Simple reload strategy or optimistic update
-          // For now, let's just refetch or prepend if it's an INSERT/UPDATE
-          // To keep it simple and robust, we might just re-query the recent list
-          // But that requires an API endpoint/action.
-          // Let's manually reconstruct the item from payload if possible, or just ignore exact details
-          // and treat it as a trigger to refresh if we had a server action.
-
-          // Better approach for "Wow" factor: Prepend the new event
-          if (
-            payload.eventType === 'INSERT' ||
-            payload.eventType === 'UPDATE'
-          ) {
-            const newRecord = payload.new as any;
-            setActivities((prev) => {
-              // Remove if exists
-              const filtered = prev.filter((p) => p.id !== newRecord.id);
-              // Add to top
-              return [newRecord, ...filtered].slice(0, 5);
-            });
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // Future: Subscribe to Leads or Users
   }, []);
 
   return (
@@ -117,7 +84,7 @@ export function RecentActivity({ initialData }: RecentActivityProps) {
             )}
           </AnimatePresence>
         </div>
-        {activities.length > 0 && (
+        {/* {activities.length > 0 && (
           <div className='mt-4 pt-2 border-t flex justify-end'>
             <Link
               href='/shipments'
@@ -125,7 +92,7 @@ export function RecentActivity({ initialData }: RecentActivityProps) {
               View All <ArrowRight className='ml-1 h-3 w-3' />
             </Link>
           </div>
-        )}
+        )} */}
       </CardContent>
     </Card>
   );

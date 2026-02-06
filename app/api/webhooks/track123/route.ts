@@ -1,79 +1,140 @@
+/** @format */
+
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { ShipmentService } from '@/lib/services/shipment-service';
-import { getTrack123ApiKey } from '@/lib/settings/service';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { Track123WebhookPayload } from '@/lib/types/track123';
+import { env } from '@/lib/env';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { data, verify } = body;
-    const { trackNo } = data || {};
-    const { signature, timestamp } = verify || {};
+    const { data, verify } = body as Track123WebhookPayload;
 
-    if (!trackNo || !signature || !timestamp) {
-        return NextResponse.json({ message: 'Invalid payload' }, { status: 400 });
-    }
-    
-    // Try to find tenant context
-    const url = new URL(req.url);
-    let tenantId = url.searchParams.get('tenantId');
-
-    if (!tenantId) {
-        // Attempt to find shipment to deduce tenant
-        const adminClient = createAdminClient();
-        const { data: shipment } = await adminClient
-          .from('shipments')
-          .select('tenant_id')
-          .eq('carrier_tracking_code', trackNo)
-          .maybeSingle();
-        
-        if (shipment) {
-            tenantId = shipment.tenant_id;
-        }
-    }
-    
-    if (!tenantId) {
-        // Cannot verify without tenant context (API Key)
-        console.warn(`[Webhook] Could not determine tenant for tracking number: ${trackNo}`);
-        return NextResponse.json({ message: 'Tenant context missing' }, { status: 400 });
+    // 1. Verify Signature
+    if (!verify || !verify.signature || !verify.timestamp) {
+      return NextResponse.json(
+        { message: 'Missing verification data' },
+        { status: 401 },
+      );
     }
 
-    // Get API Key for verification
-    const apiKey = (await getTrack123ApiKey(tenantId)) || process.env.TRACK123_API_KEY;
+    // Using existing env var or adding a new one for TRACK123_API_KEY
+    const apiKey = process.env.TRACK123_API_KEY;
+
     if (!apiKey) {
-         console.error(`[Webhook] API Key not configured for tenant: ${tenantId}`);
-         return NextResponse.json({ message: 'API Key not configured' }, { status: 500 });
+      console.error('TRACK123_API_KEY is not defined');
+      return NextResponse.json(
+        { message: 'Server configuration error' },
+        { status: 500 },
+      );
     }
 
-    // Verify Signature
-    // Format: HMAC-SHA256(timestamp, apiKey)
+    // HMAC-SHA256 Verification
     const hmac = crypto.createHmac('sha256', apiKey);
-    hmac.update(String(timestamp)); 
-    const calculatedSignature = hmac.digest('hex');
-    
-    // Constant time comparison
-    if (!crypto.timingSafeEqual(Buffer.from(calculatedSignature), Buffer.from(signature))) {
-        console.error(`[Webhook] Signature verification failed. Calculated: ${calculatedSignature}, Received: ${signature}`);
-        return NextResponse.json({ message: 'Invalid signature' }, { status: 401 });
-    }
-    
-    // Verify Timestamp freshness (e.g., 5 min window)
-    const now = Date.now();
-    const ts = parseInt(timestamp);
-    if (isNaN(ts) || Math.abs(now - ts) > 5 * 60 * 1000) {
-         console.error('[Webhook] Timestamp expired or invalid');
-         return NextResponse.json({ message: 'Timestamp expired' }, { status: 401 });
-    }
-    
-    // Process Update
-    const shipmentService = new ShipmentService();
-    await shipmentService.processWebhook(data, tenantId);
-    
-    return NextResponse.json({ message: 'OK' });
+    hmac.update(verify.timestamp);
+    const expectedSignature = hmac.digest('hex');
 
-  } catch (error: any) {
-    console.error('[Webhook] Error:', error);
-    return NextResponse.json({ message: 'Internal Server Error', error: error.message }, { status: 500 });
+    // Simple comparison
+    if (expectedSignature !== verify.signature) {
+      console.error('Invalid signature');
+      return NextResponse.json(
+        { message: 'Invalid signature' },
+        { status: 401 },
+      );
+    }
+
+    // 2. Initialize Admin Client
+    const supabase = createAdminClient();
+
+    // 3. Find Shipment
+    // We map local shipments by carrier_tracking_code
+    const { data: shipment, error: findError } = await supabase
+      .from('shipments')
+      .select('id, tenant_id')
+      .eq('carrier_tracking_code', data.trackNo)
+      .single();
+
+    if (findError || !shipment) {
+      console.warn(`Shipment not found for tracking number: ${data.trackNo}`);
+      // Return 200 to acknowledge receipt and stop retries
+      return NextResponse.json(
+        { message: 'Shipment not found' },
+        { status: 200 },
+      );
+    }
+
+    // 4. Update Shipment Status
+    const updateData: any = {
+      status:
+        data.transitStatus?.toLowerCase() === 'delivered'
+          ? 'delivered'
+          : data.transitStatus?.toLowerCase() === 'exception'
+            ? 'exception'
+            : 'in_transit', // Default to in_transit for updates, or maybe map 'pending' explicitly if needed.
+      // Better: just keep it simple or use a mapping function.
+      // For now, let's just make sure it's lowercase.
+      substatus: data.transitSubStatus,
+      last_synced_at: new Date().toISOString(),
+      raw_response: data, // Store full payload for debugging
+    };
+
+    // Update specific fields based on status
+    if (data.transitStatus === 'DELIVERED') {
+      updateData.actual_delivery_date =
+        data.deliveredTime || new Date().toISOString();
+    }
+
+    // Extract latest location if available
+    if (
+      data.localLogisticsInfo?.trackingDetails &&
+      data.localLogisticsInfo.trackingDetails.length > 0
+    ) {
+      const latestEvent = data.localLogisticsInfo.trackingDetails[0];
+      updateData.latest_location = latestEvent.address;
+    }
+
+    const { error: updateError } = await supabase
+      .from('shipments')
+      .update(updateData)
+      .eq('id', shipment.id);
+
+    if (updateError) {
+      console.error('Failed to update shipment:', updateError);
+      return NextResponse.json(
+        { message: 'Database update failed' },
+        { status: 500 },
+      );
+    }
+
+    // 5. Insert Tracking Event
+    if (
+      data.localLogisticsInfo?.trackingDetails &&
+      data.localLogisticsInfo.trackingDetails.length > 0
+    ) {
+      const latestEvent = data.localLogisticsInfo.trackingDetails[0];
+
+      // Simple check to avoid duplicates: INSERT ON CONFLICT or Check existence
+      // For simplicity, we just try to insert the latest distinct event
+      await supabase.from('tracking_events').upsert(
+        {
+          shipment_id: shipment.id,
+          status: latestEvent.transitSubStatus || 'unknown',
+          location: latestEvent.address,
+          description: latestEvent.eventDetail,
+          occurred_at: latestEvent.eventTime, // Ensure format matches ISO string
+          raw_data: latestEvent,
+        },
+        { onConflict: 'shipment_id, occurred_at, status' },
+      );
+    }
+
+    return NextResponse.json({ message: 'Webhook processed successfully' });
+  } catch (error) {
+    console.error('Webhook error:', error);
+    return NextResponse.json(
+      { message: 'Internal server error' },
+      { status: 500 },
+    );
   }
 }

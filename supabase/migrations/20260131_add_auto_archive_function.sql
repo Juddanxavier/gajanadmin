@@ -10,7 +10,13 @@ BEGIN
   WHERE 
     archived_at IS NULL
     AND status IN ('delivered', 'expired', 'failed', 'returned') -- Terminal statuses
-    AND updated_at < (NOW() - INTERVAL '90 days'); -- Configurable retention period
+    AND updated_at < (NOW() - INTERVAL '30 days'); -- Configurable retention period (30 days)
+
+  -- Auto-delete pending (untracked) shipments older than 30 days
+  DELETE FROM shipments
+  WHERE 
+    status = 'pending'
+    AND created_at < (NOW() - INTERVAL '30 days');
 END;
 $$;
 

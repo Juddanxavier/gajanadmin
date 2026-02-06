@@ -1,31 +1,49 @@
 /** @format */
 
-import { createClient } from '@supabase/supabase-js';
-import * as dotenv from 'dotenv';
-import * as path from 'path';
-
-// Load environment variables
-dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config({ path: '.env.local' });
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseServiceKey) {
+if (!supabaseUrl || !supabaseKey) {
+  console.error('Missing Supabase env vars');
   process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-async function run() {
-  const { data, error } = await supabase
+async function checkCarriers() {
+  console.log('Checking carriers table...');
+  const { count, error: countError } = await supabase
     .from('carriers')
-    .select('code, name_en');
-  if (error) {
-    console.error('Error:', error);
+    .select('*', { count: 'exact', head: true });
+
+  if (countError) {
+    console.error('Error getting count:', countError);
     return;
   }
-  console.log(`Found ${data.length} carriers:`);
-  data.forEach((c) => console.log(`- ${c.code}: ${c.name_en}`));
+  console.log(`Total carriers: ${count}`);
+
+  const { data, error } = await supabase
+    .from('carriers')
+    .select('code, name_en')
+    .limit(10);
+
+  if (error) {
+    console.error('Error fetching data:', error);
+    return;
+  }
+
+  console.log('First 10 carriers:', data);
+
+  // Check for common ones
+  const { data: common } = await supabase
+    .from('carriers')
+    .select('code, name_en')
+    .in('code', ['ups', 'fedex', 'usps', 'dhl', 'fedex-express', 'fedex-uk']);
+
+  console.log('Common carriers entries:', common);
 }
 
-run();
+checkCarriers().catch(console.error);

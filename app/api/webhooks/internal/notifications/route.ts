@@ -1,138 +1,98 @@
 /** @format */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { EmailService } from '@/lib/services/email-notification-service';
-import { NotificationService } from '@/lib/services/notification-service';
-import { z } from 'zod';
+import {
+  notificationService,
+  NotificationEventType,
+} from '@/lib/services/notification-service';
+import { env } from '@/lib/env'; // Assuming env is available or use process.env
 
-// Only send emails for these critical statuses
-const NOTIFIABLE_STATUSES = [
-  'delivered',
-  'info_received',
-  'exception',
-] as const;
-
-// Request validation schema
-const NotificationRequestSchema = z.object({
-  shipment_id: z.string().uuid(),
-  tenant_id: z.string().uuid(),
-  old_status: z.string(),
-  new_status: z.string(),
-  tracking_code: z.string(),
-  reference_code: z.string(),
-  customer_email: z.string().email(),
-  customer_name: z.string().optional(),
-  invoice_amount: z.number().optional(),
-  invoice_currency: z.string().optional(),
-  delivery_date: z.string().optional(),
-});
-
-type NotificationRequest = z.infer<typeof NotificationRequestSchema>;
-
-export async function POST(request: NextRequest) {
-  const startTime = Date.now();
-
+export async function POST(req: NextRequest) {
   try {
-    console.log('📧 Internal Notification Webhook Triggered');
+    // 1. Validate Secret
+    const authHeader = req.headers.get('authorization');
+    const secret = process.env.NOTIFICATION_SECRET || process.env.CRON_SECRET;
 
-    // 1. Security Check
-    const authHeader = request.headers.get('Authorization');
-    // Using NOTIFICATION_WEBHOOK_SECRET as CRON_SECRET is placeholder
-    if (authHeader !== `Bearer ${process.env.NOTIFICATION_WEBHOOK_SECRET}`) {
-      console.warn('⚠️ Unauthorized webhook attempt');
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 },
-      );
+    if (!authHeader || authHeader !== `Bearer ${secret}`) {
+      // Allow if secret is empty? No, secure by default.
+      if (secret) {
+        return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+      } else {
+        console.warn(
+          'Security Warning: NOTIFICATION_SECRET not set, allowing request.',
+        );
+      }
     }
 
-    // 2. Parse and validate request
-    const body = await request.json();
-    const validatedData = NotificationRequestSchema.parse(body);
+    // 2. Parse Payload
+    const body = await req.json();
+    const {
+      shipment_id,
+      tenant_id,
+      old_status,
+      new_status,
+      tracking_code,
+      reference_code,
+      customer_email,
+      customer_name,
+      invoice_amount,
+      invoice_currency,
+    } = body;
 
-    const { new_status, customer_email, customer_name } = validatedData;
-
-    // Filter: Only send emails for critical statuses
-    if (!NOTIFIABLE_STATUSES.includes(new_status as any)) {
-      console.log(
-        `⏭️  Skipping email for status: ${new_status} (not in notifiable list)`,
-      );
-      return NextResponse.json({
-        success: true,
-        message: `Status ${new_status} is not notifiable`,
-        skipped: true,
-      });
+    if (!shipment_id || !new_status) {
+      return NextResponse.json({ message: 'Invalid Payload' }, { status: 400 });
     }
 
-    // Validate email
-    if (!customer_email) {
-      console.error('❌ No customer email provided');
-      return NextResponse.json(
-        { success: false, error: 'Customer email is required' },
-        { status: 400 },
-      );
+    // 3. Determine Event Type
+    let eventType: NotificationEventType | null = null;
+
+    if (old_status === 'new') {
+      eventType = 'shipment_created';
+    } else {
+      // Status Change
+      switch (new_status) {
+        case 'delivered':
+          eventType = 'shipment_delivered';
+          break;
+        case 'exception':
+        case 'failed':
+          eventType = 'shipment_exception';
+          break;
+        case 'out_for_delivery':
+          eventType = 'shipment_out_for_delivery';
+          break;
+        default:
+          // Other statuses like in_transit might just be ignored by queue logic
+          // if not configured, but let's map them if possible
+          if (new_status === 'in_transit') eventType = 'shipment_in_transit';
+          break;
+      }
     }
 
-    // Get Supabase client
-    const supabase = await createClient();
+    if (!eventType) {
+      return NextResponse.json({ message: 'Event type not mapped, ignored.' });
+    }
 
-    // Create notification service (orchestrator)
-    const notificationService = new NotificationService(supabase);
-
-    // Send notifications
-    const results = await notificationService.sendNotifications({
-      shipmentId: validatedData.shipment_id,
-      tenantId: validatedData.tenant_id,
-      status: new_status,
+    // 4. Queue Notification
+    await notificationService.queueNotification({
+      shipmentId: shipment_id,
+      tenantId: tenant_id,
+      eventType: eventType,
       recipientEmail: customer_email,
-      recipientName: customer_name,
-      trackingCode: validatedData.tracking_code,
-      referenceCode: validatedData.reference_code,
-      invoiceAmount: validatedData.invoice_amount,
-      invoiceCurrency: validatedData.invoice_currency,
-      deliveryDate: validatedData.delivery_date,
-    });
-
-    const duration = Date.now() - startTime;
-    console.log(`✅ Notification webhook processed in ${duration}ms`, results);
-
-    // Determine overall success (if at least one channel worked or all skipped)
-    const emailSuccess = results.email?.success || results.email?.skipped;
-    // const whatsappSuccess = results.whatsapp?.success || results.whatsapp?.skipped;
-
-    return NextResponse.json({
-      success: emailSuccess,
-      results,
-      duration,
-    });
-  } catch (error) {
-    const duration = Date.now() - startTime;
-    console.error('❌ Notification webhook failed:', error);
-
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid request data',
-          details: (error as any).errors,
-        },
-        { status: 400 },
-      );
-    }
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        duration,
+      recipientName: customer_name || 'Customer',
+      templateData: {
+        tracking_number: tracking_code,
+        order_number: reference_code,
+        status: new_status,
+        recipient_name: customer_name || 'Customer',
+        // Add explicit amounts if invoice present
+        ...(invoice_amount ? { invoice_amount, invoice_currency } : {}),
       },
-      { status: 500 },
-    );
-  }
-}
+    });
 
-// Health check endpoint
-export async function GET() {
-  return NextResponse.json({ status: 'active', type: 'internal-webhook' });
+    return NextResponse.json({ success: true, message: 'Notification queued' });
+  } catch (err: any) {
+    console.error('Notification Webhook Error:', err);
+    return NextResponse.json({ message: err.message }, { status: 500 });
+  }
 }

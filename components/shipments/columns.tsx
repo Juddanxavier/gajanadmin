@@ -2,12 +2,13 @@
 
 'use client';
 
-import { useState } from 'react';
+/** @format */
+
+'use client';
+
 import { ColumnDef } from '@tanstack/react-table';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, RefreshCw, Edit, Trash2, Mail } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,313 +18,246 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  syncShipmentAction,
-  sendShipmentNotificationAction,
-  archiveShipmentAction,
-  unarchiveShipmentAction,
-} from '@/app/(dashboard)/shipments/actions';
+  ArrowUpDown,
+  RefreshCw,
+  Eye,
+  Edit,
+  Archive,
+  Trash,
+  MoreHorizontal,
+} from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import Link from 'next/link';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
-import { CarrierLogo } from './carrier-logo';
-import { CopyButton } from '@/components/ui/copy-button'; // Import CopyButton
-import { EditShipmentDialog } from './edit-shipment-dialog';
-import { DeleteShipmentDialog } from './delete-shipment-dialog';
-import { CountryFlag } from '@/components/ui/country-flag';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+  deleteShipment,
+  refreshShipment,
+  archiveShipment,
+} from '@/app/(dashboard)/shipments/actions';
 
-// Type definition matching the join in actions.ts: select('*, user:user_id(email, id)')
-export type ShipmentDisplay = {
+export type Shipment = {
   id: string;
-  created_at: string;
-  updated_at: string;
   white_label_code: string;
   carrier_tracking_code: string;
-  carrier_id: string;
-  provider: string;
   status: string;
-  latest_location?: string;
-  estimated_delivery?: string;
-  origin_country?: string;
+  carrier_id: string;
+  customer_details: {
+    name: string;
+    email: string;
+    phone?: string;
+  };
   destination_country?: string;
-  customer_details: any;
-  invoice_details?: any;
-  user?: { email: string; id: string } | null;
-  last_synced_at?: string;
-  raw_response?: any;
+  destination_city?: string;
+  created_at: string;
   archived_at?: string | null;
+  amount?: number;
+  last_synced_at?: string;
+  tenants: {
+    name: string;
+    slug: string;
+  };
+  carriers: {
+    name_en: string;
+    logo_url?: string;
+  };
 };
 
-const getStatusColor = (status: string) => {
-  switch (status.toLowerCase()) {
-    case 'delivered':
-      return 'default'; // Black/Primary
-    case 'in_transit':
-      return 'secondary'; // Gray
-    case 'pending':
-      return 'outline';
-    case 'exception':
-      return 'destructive';
-    case 'invalid':
-      return 'destructive';
-    default:
-      return 'secondary';
-  }
+const statusColors: Record<string, string> = {
+  pending: 'bg-gray-100 text-gray-800',
+  in_transit: 'bg-blue-100 text-blue-800',
+  out_for_delivery: 'bg-purple-100 text-purple-800',
+  delivered: 'bg-green-100 text-green-800',
+  exception: 'bg-red-100 text-red-800',
+  expired: 'bg-orange-100 text-orange-800',
+  failed: 'bg-red-100 text-red-800',
 };
 
-const handleSync = async (id: string) => {
-  const promise = syncShipmentAction(id);
-  toast.promise(promise, {
-    loading: 'Syncing shipment...',
-    success: 'Shipment synced successfully',
-    error: (err) => `Sync failed: ${err.message}`,
-  });
+const statusLabels: Record<string, string> = {
+  pending: 'Pending',
+  in_transit: 'In Transit',
+  out_for_delivery: 'Out for Delivery',
+  delivered: 'Delivered',
+  exception: 'Exception',
+  expired: 'Expired',
+  failed: 'Failed',
 };
 
-const handleSendNotification = async (id: string) => {
-  const promise = sendShipmentNotificationAction(id);
-  toast.promise(promise, {
-    loading: 'Queueing notification...',
-    success: 'Notification queued successfully',
-    error: (err) => `Failed to queue: ${err.message}`,
-  });
-};
-
-const handleArchive = async (id: string) => {
-  const promise = archiveShipmentAction(id);
-  toast.promise(promise, {
-    loading: 'Archiving shipment...',
-    success: 'Shipment archived',
-    error: (err) => `Failed to archive: ${err.message}`,
-  });
-};
-
-const handleUnarchive = async (id: string) => {
-  const promise = unarchiveShipmentAction(id);
-  toast.promise(promise, {
-    loading: 'Unarchiving shipment...',
-    success: 'Shipment unarchived',
-    error: (err) => `Failed to unarchive: ${err.message}`,
-  });
-};
-
-export const columns: ColumnDef<ShipmentDisplay>[] = [
+export const columns: ColumnDef<Shipment>[] = [
   {
     id: 'select',
     header: ({ table }) => (
       <Checkbox
-        checked={table.getIsAllPageRowsSelected()}
+        checked={
+          table.getIsAllPageRowsSelected() ||
+          (table.getIsSomePageRowsSelected() && 'indeterminate')
+        }
         onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
         aria-label='Select all'
       />
     ),
     cell: ({ row }) => (
-      <Checkbox
-        checked={row.getIsSelected()}
-        onCheckedChange={(value) => row.toggleSelected(!!value)}
-        aria-label='Select row'
-      />
+      <div onClick={(e) => e.stopPropagation()}>
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label='Select row'
+        />
+      </div>
     ),
     enableSorting: false,
     enableHiding: false,
   },
   {
     accessorKey: 'white_label_code',
-    header: 'White Label',
-    cell: ({ row }) => (
-      <div className='flex items-center gap-1.5'>
-        <span className='text-xs text-muted-foreground font-mono'>
-          {row.getValue('white_label_code')}
-        </span>
-        <CopyButton
-          value={row.getValue('white_label_code')}
-          label='Copy White Label ID'
-          className='opacity-50 hover:opacity-100'
-        />
-      </div>
-    ),
-  },
-  {
-    accessorKey: 'carrier_tracking_code',
-    header: 'Tracking Code',
-    cell: ({ row }) => (
-      <div className='flex items-center gap-1.5'>
-        <a
-          href={`/shipments/${row.original.id}`}
-          className='font-medium hover:underline text-primary truncate max-w-[150px] inline-block align-middle'>
-          {row.getValue('carrier_tracking_code')}
-        </a>
-        <CopyButton
-          value={row.getValue('carrier_tracking_code')}
-          label='Copy Tracking Code'
-          className='opacity-0 group-hover:opacity-100 transition-opacity'
-        />
-      </div>
-    ),
-  },
-  {
-    accessorKey: 'carrier_id',
-    header: 'Carrier',
-    cell: ({ row }) => {
-      const carrierCode = row.getValue('carrier_id') as string;
+    header: ({ column }) => {
       return (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className='flex items-center justify-start'>
-              <CarrierLogo
-                code={carrierCode}
-                className='h-6 w-6'
-                width={24}
-                height={24}
-              />
-            </div>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p className='capitalize'>{carrierCode}</p>
-          </TooltipContent>
-        </Tooltip>
+        <Button
+          variant='ghost'
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
+          White Label Code
+          <ArrowUpDown className='ml-2 h-4 w-4' />
+        </Button>
+      );
+    },
+    cell: ({ row }) => {
+      return (
+        <Link
+          href={`/shipments/${row.original.id}`}
+          className='font-mono font-semibold text-blue-600 hover:text-blue-800 hover:underline'>
+          {row.original.white_label_code}
+        </Link>
       );
     },
   },
   {
     accessorKey: 'status',
-    header: 'Status',
-    cell: ({ row }) => {
-      const status = row.getValue('status') as string;
+    header: ({ column }) => {
       return (
-        <Badge variant={getStatusColor(status)} className='capitalize'>
-          {status.replace('_', ' ')}
+        <Button
+          variant='ghost'
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
+          Status
+          <ArrowUpDown className='ml-2 h-4 w-4' />
+        </Button>
+      );
+    },
+    cell: ({ row }) => {
+      const status = row.original.status;
+      return (
+        <Badge className={statusColors[status] || 'bg-gray-100 text-gray-800'}>
+          {statusLabels[status] || status}
         </Badge>
       );
     },
   },
   {
-    accessorKey: 'origin',
-    header: 'Origin',
-    cell: ({ row }) => {
-      const raw = row.original.raw_response;
-      const origin =
-        raw?.ship_from || raw?.shipFrom || row.original.origin_country || '-';
-      // Fallback: If origin string is exactly 2 chars (e.g. "CN"), use it as code.
-      const countryCode =
-        row.original.origin_country ||
-        (typeof origin === 'string' && origin.length === 2
-          ? origin
-          : undefined);
-
-      const displayContent =
-        countryCode && countryCode.length === 2 ? (
-          <CountryFlag
-            countryCode={countryCode}
-            className='h-5 w-7 rounded-[2px] shrink-0'
-          />
-        ) : (
-          <span className='text-xs text-muted-foreground truncate max-w-[120px]'>
-            {origin}
-          </span>
-        );
-
-      return (
-        <Tooltip>
-          <TooltipTrigger className='cursor-default'>
-            {displayContent}
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{origin}</p>
-          </TooltipContent>
-        </Tooltip>
-      );
-    },
-  },
-  {
-    accessorKey: 'destination',
-    header: 'Destination',
-    cell: ({ row }) => {
-      const raw = row.original.raw_response;
-      // Prioritize latest_location (actual city) over country code, unless it's the historical placeholder
-      const location =
-        row.original.latest_location === 'Historical Data Entry'
-          ? null
-          : row.original.latest_location;
-
-      const destination =
-        location ||
-        raw?.ship_to ||
-        raw?.shipTo ||
-        row.original.destination_country ||
-        '-';
-      const countryCode =
-        row.original.destination_country ||
-        (typeof destination === 'string' && destination.length === 2
-          ? destination
-          : undefined);
-
-      const displayContent =
-        countryCode && countryCode.length === 2 ? (
-          <CountryFlag
-            countryCode={countryCode}
-            className='h-5 w-7 rounded-[2px] shrink-0'
-          />
-        ) : (
-          <span className='text-xs text-muted-foreground truncate max-w-[120px]'>
-            {destination}
-          </span>
-        );
-
-      return (
-        <Tooltip>
-          <TooltipTrigger className='cursor-default'>
-            {displayContent}
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{destination}</p>
-          </TooltipContent>
-        </Tooltip>
-      );
-    },
+    accessorKey: 'carrier_tracking_code',
+    header: 'Carrier Tracking',
+    cell: ({ row }) => (
+      <span className='font-mono text-sm text-muted-foreground'>
+        {row.original.carrier_tracking_code}
+      </span>
+    ),
   },
   {
     accessorKey: 'amount',
-    header: 'Amount',
-    cell: ({ row }) => {
-      const invoice = row.original.invoice_details as any;
-      const amount = invoice?.amount || invoice?.total;
-      return amount ? (
-        <div className='font-medium'>₹{amount}</div>
-      ) : (
-        <span className='text-muted-foreground'>-</span>
+    header: ({ column }) => {
+      return (
+        <Button
+          variant='ghost'
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
+          Amount
+          <ArrowUpDown className='ml-2 h-4 w-4' />
+        </Button>
       );
     },
-  },
-  {
-    accessorKey: 'customer',
-    header: 'Customer',
     cell: ({ row }) => {
-      const details = row.original.customer_details as any;
+      const amount = row.original.amount;
+      if (!amount) return <span className='text-muted-foreground'>—</span>;
       return (
-        <div className='text-xs'>
-          {details?.name || row.original.user?.email || 'Unknown'}
+        <div className='font-medium'>
+          {new Intl.NumberFormat('en-IN', {
+            style: 'currency',
+            currency: 'INR',
+          }).format(Number(amount))}
         </div>
       );
     },
   },
   {
-    accessorKey: 'last_synced_at',
-    header: 'Last Synced',
+    accessorKey: 'customer_details.name',
+    header: 'Customer',
     cell: ({ row }) => {
-      const dateStr = row.getValue('last_synced_at') as string;
-      if (!dateStr) return '-';
-      const date = new Date(dateStr);
-      // Check if valid date
-      if (isNaN(date.getTime())) return '-';
+      const customer = row.original.customer_details;
       return (
-        <span className='text-xs text-muted-foreground'>
-          {format(date, 'PP p')}
-        </span>
+        <div>
+          <div className='font-medium'>{customer.name}</div>
+          <div className='text-sm text-muted-foreground'>{customer.email}</div>
+        </div>
+      );
+    },
+  },
+  {
+    accessorKey: 'carriers.name_en',
+    header: 'Carrier',
+    cell: ({ row }) => {
+      const carrier = row.original.carriers;
+      return (
+        <div className='flex items-center gap-2'>
+          {carrier.logo_url && (
+            <img
+              src={carrier.logo_url}
+              alt={carrier.name_en}
+              className='h-6 w-6 object-contain'
+            />
+          )}
+          <span>{carrier.name_en}</span>
+        </div>
+      );
+    },
+  },
+  {
+    accessorKey: 'destination_country',
+    header: 'Destination',
+    cell: ({ row }) => {
+      const { destination_country, destination_city } = row.original;
+      return (
+        <div>
+          {destination_city && (
+            <div className='font-medium'>{destination_city}</div>
+          )}
+          {destination_country && (
+            <div className='text-sm text-muted-foreground'>
+              {destination_country}
+            </div>
+          )}
+          {!destination_country && !destination_city && (
+            <span className='text-muted-foreground'>—</span>
+          )}
+        </div>
+      );
+    },
+  },
+  {
+    accessorKey: 'created_at',
+    header: ({ column }) => {
+      return (
+        <Button
+          variant='ghost'
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
+          Created
+          <ArrowUpDown className='ml-2 h-4 w-4' />
+        </Button>
+      );
+    },
+    cell: ({ row }) => {
+      return (
+        <div className='text-sm'>
+          {formatDistanceToNow(new Date(row.original.created_at), {
+            addSuffix: true,
+          })}
+        </div>
       );
     },
   },
@@ -331,71 +265,82 @@ export const columns: ColumnDef<ShipmentDisplay>[] = [
     id: 'actions',
     cell: ({ row }) => {
       const shipment = row.original;
-      const [editOpen, setEditOpen] = useState(false);
-      const [deleteOpen, setDeleteOpen] = useState(false);
-      const [refreshKey, setRefreshKey] = useState(0);
+
+      const handleRefresh = async () => {
+        toast.promise(refreshShipment(shipment.id), {
+          loading: 'Refreshing tracking...',
+          success: (data) => {
+            if (data.success) return 'Refresh requested successfully';
+            throw new Error(data.error);
+          },
+          error: (err) => `Refresh failed: ${err.message}`,
+        });
+      };
+
+      const handleDelete = async () => {
+        if (!confirm('Are you sure you want to delete this shipment?')) return;
+
+        toast.promise(deleteShipment(shipment.id), {
+          loading: 'Deleting shipment...',
+          success: 'Shipment deleted',
+          error: 'Failed to delete shipment',
+        });
+      };
+
+      const handleArchive = async () => {
+        toast.promise(archiveShipment(shipment.id), {
+          loading: 'Archiving shipment...',
+          success: 'Shipment archived',
+          error: 'Failed to archive shipment',
+        });
+      };
 
       return (
-        <>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant='ghost' className='h-8 w-8 p-0'>
-                <span className='sr-only'>Open menu</span>
-                <MoreHorizontal className='h-4 w-4' />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align='end'>
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem
-                onClick={() =>
-                  navigator.clipboard.writeText(shipment.carrier_tracking_code)
-                }>
-                Copy Tracking Code
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant='ghost' className='h-8 w-8 p-0'>
+              <span className='sr-only'>Open menu</span>
+              <MoreHorizontal className='h-4 w-4' />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align='end'>
+            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            <DropdownMenuItem
+              onClick={() =>
+                navigator.clipboard.writeText(shipment.white_label_code)
+              }>
+              Copy tracking code
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href={`/shipments/${shipment.id}`}>
+                <Eye className='mr-2 h-4 w-4' />
+                View details
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href={`/shipments/${shipment.id}/edit`}>
+                <Edit className='mr-2 h-4 w-4' />
+                Edit
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleRefresh}>
+              <RefreshCw className='mr-2 h-4 w-4' />
+              Refresh tracking
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {!shipment.archived_at && (
+              <DropdownMenuItem onClick={handleArchive}>
+                <Archive className='mr-2 h-4 w-4' />
+                Archive
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setEditOpen(true)}>
-                <Edit className='mr-2 h-4 w-4' /> Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleSendNotification(shipment.id)}>
-                <Mail className='mr-2 h-4 w-4' /> Resend Update
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleSync(shipment.id)}>
-                <RefreshCw className='mr-2 h-4 w-4' /> Sync Now
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {shipment.archived_at ? (
-                <DropdownMenuItem onClick={() => handleUnarchive(shipment.id)}>
-                  <RefreshCw className='mr-2 h-4 w-4' /> Unarchive
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem onClick={() => handleArchive(shipment.id)}>
-                  <Trash2 className='mr-2 h-4 w-4' /> Archive
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => setDeleteOpen(true)}
-                className='text-destructive focus:text-destructive'>
-                <Trash2 className='mr-2 h-4 w-4' /> Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <EditShipmentDialog
-            open={editOpen}
-            onOpenChange={setEditOpen}
-            onSuccess={() => setRefreshKey((prev) => prev + 1)}
-            shipment={shipment}
-          />
-
-          <DeleteShipmentDialog
-            open={deleteOpen}
-            onOpenChange={setDeleteOpen}
-            onSuccess={() => setRefreshKey((prev) => prev + 1)}
-            shipment={shipment}
-          />
-        </>
+            )}
+            <DropdownMenuItem className='text-red-600' onClick={handleDelete}>
+              <Trash className='mr-2 h-4 w-4' />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       );
     },
   },

@@ -12,6 +12,7 @@ import {
   Target,
   Mail,
   FileText,
+  Package,
 } from 'lucide-react';
 
 export interface NavigationItem {
@@ -43,7 +44,7 @@ export const sidebarGroups: SidebarGroup[] = [
       {
         title: 'Shipments',
         href: '/shipments',
-        icon: Truck,
+        icon: Package,
       },
       {
         title: 'Leads',

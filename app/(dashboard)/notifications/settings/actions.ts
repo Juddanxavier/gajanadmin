@@ -50,34 +50,35 @@ export async function saveProviderConfig(
   // Verify permission (RLS handles this but good to be safe)
   // ...
 
-  // Check if a config already exists for this provider & tenant
+  // Check if a config already exists for this CHANNEL & tenant (regardless of provider)
   const { data: existing } = await supabase
     .from('tenant_notification_configs')
     .select('id')
     .eq('tenant_id', tenantId)
-    .eq('provider_id', providerId)
+    .eq('channel', channel) // Look up by channel, not provider
     .single();
 
   let result;
   if (existing) {
-    // Update
+    // Update existing channel config (switching provider if needed)
     result = await supabase
       .from('tenant_notification_configs')
       .update({
+        provider_id: providerId, // Update provider
         credentials,
         config,
         updated_at: new Date().toISOString(),
       })
       .eq('id', existing.id);
   } else {
-    // Insert
+    // Insert new
     result = await supabase.from('tenant_notification_configs').insert({
       tenant_id: tenantId,
       channel,
       provider_id: providerId,
       credentials,
       config,
-      is_active: false, // Default to false until explicitly activated? Or true if first one?
+      is_active: true, // Auto-activate if it's the first one
     });
   }
 

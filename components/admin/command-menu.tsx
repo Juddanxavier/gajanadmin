@@ -73,11 +73,11 @@ export function CommandMenu() {
               <LayoutDashboard className='mr-2 h-4 w-4' />
               <span>Dashboard</span>
             </CommandItem>
-            <CommandItem
+            {/* <CommandItem
               onSelect={() => runCommand(() => router.push('/shipments'))}>
               <Truck className='mr-2 h-4 w-4' />
               <span>Shipments</span>
-            </CommandItem>
+            </CommandItem> */}
             <CommandItem
               onSelect={() => runCommand(() => router.push('/leads'))}>
               <ShoppingBag className='mr-2 h-4 w-4' />

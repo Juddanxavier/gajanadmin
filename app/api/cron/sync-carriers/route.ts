@@ -1,7 +1,9 @@
+/** @format */
+
 import { NextResponse } from 'next/server';
-
-
+import { syncCarriers } from '@/app/(dashboard)/shipments/carrier-actions';
 
 export async function GET() {
-  return NextResponse.json({ message: 'Disabled for debugging' });
+  const result = await syncCarriers();
+  return NextResponse.json(result);
 }

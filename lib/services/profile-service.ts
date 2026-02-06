@@ -166,11 +166,12 @@ export class ProfileService {
       .single();
 
     // Get counts
-    const [shipmentsCount, leadsCount] = await Promise.all([
-      supabase
-        .from('shipments')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', userId),
+    const [leadsCount] = await Promise.all([
+      // Shipment count removed
+      // supabase
+      //   .from('shipments')
+      //   .select('id', { count: 'exact', head: true })
+      //   .eq('user_id', userId),
 
       supabase
         .from('leads')
@@ -183,7 +184,8 @@ export class ProfileService {
     } = await supabase.auth.getUser();
 
     return {
-      total_shipments: shipmentsCount.count || 0,
+      // total_shipments: shipmentsCount.count || 0,
+      // @ts-ignore
       total_leads: leadsCount.count || 0,
       member_since: profile?.created_at || new Date().toISOString(),
       last_active: user?.last_sign_in_at || null,
