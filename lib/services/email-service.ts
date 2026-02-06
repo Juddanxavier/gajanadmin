@@ -2,6 +2,8 @@
 
 import { logger } from '../logger';
 import { createAdminClient } from '../supabase/admin';
+import { render } from '@react-email/render';
+import ShipmentNotification from '@/emails/shipment-notification';
 import nodemailer from 'nodemailer';
 // @ts-ignore
 import { SendMailClient } from 'zeptomail';
@@ -95,7 +97,7 @@ export class EmailService {
     const supabase = createAdminClient();
 
     // 1. Fetch Template
-    const { data: template } = await supabase
+    let { data: template } = await supabase
       .from('email_templates')
       .select('*')
       .eq('tenant_id', params.tenantId)
@@ -104,11 +106,32 @@ export class EmailService {
       .single();
 
     if (!template) {
-      logger.warn('Email template not found or inactive', {
-        tenantId: params.tenantId,
-        type: params.templateType,
+      logger.warn(
+        'Email template not found in DB, using React Email Fallback',
+        {
+          tenantId: params.tenantId,
+          type: params.templateType,
+        },
+      );
+
+      // Use React Email Component
+      const emailHtml = await render(
+        ShipmentNotification({
+          trackingCode: params.variables.tracking_code || 'Unknown',
+          status: params.variables.new_status || 'Update',
+          customerName: params.variables.customer_name || 'Customer',
+          trackingUrl: `https://gajantraders.com/track/${params.variables.tracking_code}`,
+          message: `Your shipment status is now: ${params.variables.new_status}`,
+        }),
+      );
+
+      // Return immediately with the rendered HTML
+      // This bypasses the DB template variable replacement logic which is unnecessary here
+      return await this.sendEmail(params.tenantId, {
+        to: params.to,
+        subject: `Shipment Update: ${params.variables.tracking_code}`,
+        html: emailHtml,
       });
-      return { success: false, error: 'Template not found' };
     }
 
     // 2. Compile Content

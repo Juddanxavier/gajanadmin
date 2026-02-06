@@ -1,23 +1,9 @@
 /** @format */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { notificationService } from '@/lib/services/notification-service';
+import { notificationQueueService } from '@/lib/services/notification-queue-service';
 import { logger } from '@/lib/logger';
 
-/**
- * Cron job endpoint to process pending notifications
- * Triggered by Supabase cron job or external scheduler
- *
- * Setup in Supabase:
- * SELECT cron.schedule(
- *   'process-notifications',
- *   '* * * * *',  -- Every minute
- *   $$ SELECT net.http_post(
- *     url:='https://your-domain.com/api/cron/process-notifications',
- *     headers:='{"Content-Type": "application/json", "Authorization": "Bearer YOUR_CRON_SECRET"}'::jsonb
- *   ) AS request_id; $$
- * );
- */
 export async function POST(request: NextRequest) {
   try {
     // Verify cron secret
@@ -25,43 +11,22 @@ export async function POST(request: NextRequest) {
     const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
 
     if (authHeader !== expectedAuth) {
-      logger.warn('Unauthorized cron request', {
-        ip: request.headers.get('x-forwarded-for') || 'unknown',
-      });
-
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    logger.info('Processing notification queue via cron');
-
-    // Process notifications
-    const result = await notificationService.processPendingNotifications();
-
-    logger.info('Cron job completed', result);
+    // Run the Processor
+    const result = await notificationQueueService.processQueue(50); // Process up to 50 items
 
     return NextResponse.json({
       success: true,
-      ...result,
+      processed: result.processed,
+      errors: result.errors,
     });
-  } catch (error) {
-    logger.error('Cron job failed', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-
+  } catch (error: any) {
+    logger.error('Cron job failed', error);
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      },
+      { success: false, error: error.message },
       { status: 500 },
     );
   }
-}
-
-// Allow GET for health checks
-export async function GET() {
-  return NextResponse.json({
-    status: 'ok',
-    service: 'notification-processor',
-  });
 }
