@@ -178,8 +178,9 @@ function UsersPageContent() {
       <div className='flex items-center justify-between'>
         <div>
           <h1 className='text-3xl font-bold tracking-tight'>User Management</h1>
-          <p className='text-muted-foreground'>
-            Manage users, roles, and assignments (Direct Mode)
+          <p className='text-muted-foreground mt-1'>
+            Manage team members, assign roles, and control access permissions
+            across your organization.
           </p>
         </div>
       </div>
@@ -221,8 +222,8 @@ function UsersPageContent() {
           tenants={tenants}
           isRefreshing={isLoading}
           meta={{
-            onEdit: (user) => setEditingUser(user),
-            onDelete: (user) => setDeletingUsers([user]),
+            onEdit: (user: UserDisplay) => setEditingUser(user),
+            onDelete: (user: UserDisplay) => setDeletingUsers([user]),
             currentUserId: currentUserId,
           }}
         />

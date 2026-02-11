@@ -3,6 +3,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import {
   addDays,
   format,
@@ -143,4 +144,117 @@ export async function getPredictiveInsights() {
   ];
 
   return insights;
+}
+
+export async function getShipmentAnalyticsData(days = 30) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return null;
+
+  const admin = createAdminClient();
+  const startDate = subDays(new Date(), days).toISOString();
+
+  // 1. Determine Scope
+  const { data: isGlobal } = await admin.rpc('is_admin', {
+    user_uuid: user.id,
+  });
+
+  const { data: roles } = await admin
+    .from('user_roles')
+    .select('role, tenant_id')
+    .eq('user_id', user.id);
+
+  const isSuperAdmin = isGlobal || roles?.some((r) => r.role === 'super_admin');
+
+  // 2. Base Query via Admin to ensure access if unauthorized via standard RLS
+  let query = admin
+    .from('shipments')
+    .select('id, status, created_at, carrier_id, tenant_id')
+    .gte('created_at', startDate);
+
+  // 3. Apply Scoping
+  if (!isSuperAdmin) {
+    if (roles && roles.length > 0) {
+      // Filter by user's tenants
+      const tenantIds = roles.map((r) => r.tenant_id).filter(Boolean);
+      if (tenantIds.length > 0) {
+        query = query.in('tenant_id', tenantIds);
+      } else {
+        // Fallback
+        query = query.eq('user_id', user.id);
+      }
+    } else {
+      query = query.eq('user_id', user.id);
+    }
+  }
+
+  // Fetch shipments
+  const { data: shipments } = await query;
+
+  if (!shipments) return null;
+
+  // 1. Stats
+  const total = shipments.length;
+  const active = shipments.filter((s) =>
+    ['pending', 'in_transit', 'out_for_delivery'].includes(s.status),
+  ).length;
+  const delivered = shipments.filter((s) => s.status === 'delivered').length;
+  const exceptions = shipments.filter((s) => s.status === 'exception').length;
+
+  // 2. Trends (Daily Volume)
+  const dailyTrends: Record<string, number> = {};
+  const interval = eachDayOfInterval({
+    start: subDays(new Date(), days),
+    end: new Date(),
+  });
+
+  interval.forEach((date) => {
+    dailyTrends[format(date, 'yyyy-MM-dd')] = 0;
+  });
+
+  shipments.forEach((s) => {
+    const date = format(new Date(s.created_at), 'yyyy-MM-dd');
+    if (dailyTrends[date] !== undefined) {
+      dailyTrends[date]++;
+    }
+  });
+
+  const trends = Object.entries(dailyTrends)
+    .map(([date, count]) => ({ date, count }))
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  // 3. Status Distribution
+  const statusCounts: Record<string, number> = {};
+  shipments.forEach((s) => {
+    statusCounts[s.status] = (statusCounts[s.status] || 0) + 1;
+  });
+
+  const statusDistribution = Object.entries(statusCounts).map(
+    ([status, count]) => ({
+      name: status.replace('_', ' '),
+      value: count,
+    }),
+  );
+
+  // 4. Carrier Performance (Volume)
+  const carrierCounts: Record<string, number> = {};
+  shipments.forEach((s) => {
+    const carrier = s.carrier_id || 'Unknown';
+    carrierCounts[carrier] = (carrierCounts[carrier] || 0) + 1;
+  });
+
+  const carrierPerformance = Object.entries(carrierCounts)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5); // Top 5
+
+  return {
+    stats: { total, active, delivered, exceptions },
+    trends,
+    statusDistribution,
+    carrierPerformance,
+  };
 }

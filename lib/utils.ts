@@ -156,3 +156,16 @@ export function getCountryFlag(countryCode: string): string {
     .map((char) => 127397 + char.charCodeAt(0));
   return String.fromCodePoint(...codePoints);
 }
+
+/**
+ * Get full country name from ISO code
+ */
+export function getCountryName(countryCode: string): string {
+  if (!countryCode) return '';
+  try {
+    const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+    return regionNames.of(countryCode) || countryCode;
+  } catch (error) {
+    return countryCode;
+  }
+}

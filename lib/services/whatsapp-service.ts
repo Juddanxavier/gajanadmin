@@ -1,175 +1,151 @@
 /** @format */
 
 import { logger } from '../logger';
+import { createAdminClient } from '../supabase/admin';
 
-export interface WhatsAppConfig {
-  authKey: string;
-  senderId?: string;
-}
-
-export interface WhatsAppMessage {
-  to: string; // Phone number with country code (e.g., 919876543210)
-  templateId: string;
+export interface WhatsAppOptions {
+  to: string;
+  templateName: string;
   variables: Record<string, string>;
-  recipientName?: string;
+  language?: string;
 }
 
-export interface WhatsAppResponse {
-  success: boolean;
-  messageId?: string;
-  error?: string;
-}
-
-/**
- * MSG91 WhatsApp Service
- * Documentation: https://docs.msg91.com/p/tf9GTextGo9G96DYtBv54w/e/Lhd7sEgNYo6jqLaQ7mTrXKZ Rz/MSG91-WhatsApp-API
- */
 export class WhatsAppService {
-  private authKey: string;
-  private senderId: string;
-  private baseUrl: string = 'https://api.msg91.com/api/v5';
-
-  constructor(config: WhatsAppConfig) {
-    this.authKey = config.authKey;
-    this.senderId = config.senderId || 'MSG91';
-  }
+  private baseUrl =
+    'https://control.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/custom/';
 
   /**
-   * Send WhatsApp template message via MSG91
+   * Send a WhatsApp message using MSG91
    */
-  async sendTemplateMessage(
-    message: WhatsAppMessage,
-  ): Promise<WhatsAppResponse> {
+  async sendWhatsApp(
+    tenantId: string,
+    options: WhatsAppOptions,
+  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     try {
-      logger.info('Sending WhatsApp message', {
-        to: message.to,
-        templateId: message.templateId,
-      });
+      // 1. Get Tenant Config
+      const supabase = createAdminClient();
+      const { data: config } = await supabase
+        .from('tenant_notification_configs')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('channel', 'whatsapp')
+        .eq('is_active', true)
+        .single();
 
-      const response = await fetch(
-        `${this.baseUrl}/whatsapp/whatsapp-outbound-message/`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            authkey: this.authKey,
-          },
-          body: JSON.stringify({
-            integrated_number: this.senderId,
-            content_type: 'template',
-            payload: {
-              to: message.to,
-              type: 'template',
-              template: {
-                name: message.templateId,
-                language: {
-                  code: 'en',
-                  policy: 'deterministic',
-                },
-                components: this.buildTemplateComponents(message.variables),
-              },
+      let apiKey = process.env.MSG91_API_KEY;
+      let integratedNumber = process.env.MSG91_INTEGRATED_NUMBER;
+
+      if (config && config.provider_id === 'msg91') {
+        apiKey = config.credentials?.api_key || apiKey;
+        integratedNumber =
+          config.credentials?.integrated_number || integratedNumber;
+      }
+
+      if (!apiKey || !integratedNumber) {
+        logger.warn('No active WhatsApp configuration found (MSG91)', {
+          tenantId,
+        });
+        return { success: false, error: 'WhatsApp configuration missing' };
+      }
+
+      // 2. Prepare Payload for MSG91
+      // Note: MSG91 structure varies by template type. This is a generic implementation.
+      const payload = {
+        integrated_number: integratedNumber,
+        content_type: 'template',
+        payload: {
+          to: options.to,
+          type: 'template',
+          template: {
+            name: options.templateName,
+            language: {
+              code: options.language || 'en',
+              policy: 'deterministic',
             },
-          }),
+            to_and_components: [
+              {
+                to: [options.to],
+                components: this.mapVariablesToComponents(
+                  options.variables,
+                  options.templateName,
+                ),
+              },
+            ],
+          },
         },
-      );
+      };
+
+      // 3. Send Request
+      const response = await fetch(this.baseUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          authkey: apiKey,
+        },
+        body: JSON.stringify(payload),
+      });
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to send WhatsApp message');
+      if (!response.ok || data.type === 'error') {
+        throw new Error(data.message || 'MSG91 API Error');
       }
 
-      logger.info('WhatsApp message sent successfully', {
-        to: message.to,
-        messageId: data.data?.id,
+      return { success: true, messageId: data.message_id };
+    } catch (error: any) {
+      logger.error('WhatsApp send failed', {
+        error: error.message,
+        tenantId,
+        to: options.to,
       });
-
-      return {
-        success: true,
-        messageId: data.data?.id,
-      };
-    } catch (error) {
-      logger.error('Error sending WhatsApp message', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        to: message.to,
-      });
-
-      return {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Failed to send WhatsApp message',
-      };
+      return { success: false, error: error.message };
     }
   }
 
   /**
-   * Build template components from variables
+   * Maps detailed payload to MSG91 component structure based on template rules
    */
-  private buildTemplateComponents(variables: Record<string, string>): any[] {
-    const parameters = Object.entries(variables).map(([key, value]) => ({
+  private mapVariablesToComponents(
+    variables: Record<string, string>,
+    templateName: string,
+  ) {
+    // Standard Mappings for known templates
+    // MSG91 templates usually use {{1}}, {{2}} etc.
+    // We map our named variables to these indices.
+
+    let orderedValues: string[] = [];
+
+    if (
+      templateName === 'shipment_status' ||
+      templateName === 'shipment_update'
+    ) {
+      // Template: "Hello {{1}}, your shipment {{2}} is now {{3}}. Track here: {{4}}"
+      orderedValues = [
+        variables.customer_name || 'Customer',
+        variables.tracking_code || 'Unknown',
+        variables.new_status || 'Updated',
+        `https://gajantraders.com/track/${variables.white_label_code || variables.tracking_code}`,
+      ];
+    } else if (templateName === 'shipment_delivered') {
+      // Template: "Hi {{1}}, shipment {{2}} has been delivered."
+      orderedValues = [
+        variables.customer_name || 'Customer',
+        variables.tracking_code || 'Unknown',
+      ];
+    } else {
+      // Fallback: Just dump values if unknown template
+      orderedValues = Object.values(variables).map(String);
+    }
+
+    const parameters = orderedValues.map((val) => ({
       type: 'text',
-      text: value,
+      text: String(val),
     }));
 
-    return [
-      {
-        type: 'body',
-        parameters,
-      },
-    ];
-  }
-
-  /**
-   * Format phone number for MSG91
-   * Removes spaces, dashes, and plus sign
-   */
-  static formatPhoneNumber(phone: string): string {
-    return phone.replace(/[\s\-\+]/g, '');
-  }
-
-  /**
-   * Validate phone number format
-   */
-  static isValidPhoneNumber(phone: string): boolean {
-    // Should be 10-15 digits
-    const cleaned = WhatsAppService.formatPhoneNumber(phone);
-    return /^\d{10,15}$/.test(cleaned);
+    return {
+      body: parameters,
+    };
   }
 }
 
-// Singleton instance
-export const whatsappService = process.env.MSG91_AUTH_KEY
-  ? new WhatsAppService({
-      authKey: process.env.MSG91_AUTH_KEY,
-      senderId: process.env.MSG91_SENDER_ID,
-    })
-  : null;
-
-/**
- * WhatsApp Message Templates
- * These should match the templates configured in MSG91 dashboard
- */
-export const WHATSAPP_TEMPLATES = {
-  SHIPMENT_RECEIVED: {
-    id: 'shipment_received',
-    variables: ['customerName', 'trackingCode', 'carrier'],
-  },
-  SHIPMENT_IN_TRANSIT: {
-    id: 'shipment_in_transit',
-    variables: ['customerName', 'trackingCode', 'location'],
-  },
-  SHIPMENT_OUT_FOR_DELIVERY: {
-    id: 'shipment_out_for_delivery',
-    variables: ['customerName', 'trackingCode', 'estimatedDelivery'],
-  },
-  SHIPMENT_DELIVERED: {
-    id: 'shipment_delivered',
-    variables: ['customerName', 'trackingCode', 'deliveryDate'],
-  },
-  SHIPMENT_EXCEPTION: {
-    id: 'shipment_exception',
-    variables: ['customerName', 'trackingCode', 'exceptionReason'],
-  },
-};
+export const whatsappService = new WhatsAppService();

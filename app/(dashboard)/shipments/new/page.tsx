@@ -88,7 +88,7 @@ export default function NewShipmentPage() {
     try {
       const result = await createShipment(values);
 
-      if (result.success) {
+      if (result.success && result.data) {
         toast.success('Shipment created successfully!');
         router.push(`/shipments/${result.data.id}`);
       } else {

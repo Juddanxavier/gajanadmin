@@ -202,15 +202,17 @@ export interface Lead {
 export interface LeadTableFilters {
   search?: string;
   status?: string;
+  tenant?: string;
   dateFrom?: Date;
   dateTo?: Date;
 }
 
 export interface ShipmentTableFilters {
   search?: string;
-  status?: string;
+  status?: string | string[];
   provider?: string;
   tenant?: string;
+  carrier_id?: string;
   archived?: boolean | 'all';
   dateFrom?: Date;
   dateTo?: Date;

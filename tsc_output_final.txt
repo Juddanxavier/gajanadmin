@@ -1,0 +1,16 @@
+app/(dashboard)/notifications/logs/table.tsx(53,17): error TS2345: Argument of type 'any[] | undefined' is not assignable to parameter of type 'SetStateAction<Log[]>'.
+  Type 'undefined' is not assignable to type 'SetStateAction<Log[]>'.
+app/(dashboard)/shipments/actions.ts(879,34): error TS2551: Property 'destination_country' does not exist on type '{ customerName?: string | undefined; customerEmail?: string | undefined; customerPhone?: string | undefined; notes?: string | undefined; destinationCountry?: string | undefined; amount?: number | undefined; }'. Did you mean 'destinationCountry'?
+app/(dashboard)/shipments/new/page.tsx(93,35): error TS18048: 'result.data' is possibly 'undefined'.
+app/(dashboard)/users/actions.ts(647,5): error TS2322: Type 'ActionResponse<{ total: number; active: number; byRole: Record<string, number>; byTenant: Record<string, number>; }>' is not assignable to type 'ActionResponse<UserStats>'.
+  Type '{ success: true; data: { total: number; active: number; byRole: Record<string, number>; byTenant: Record<string, number>; }; error?: undefined; }' is not assignable to type 'ActionResponse<UserStats>'.
+    Type '{ success: true; data: { total: number; active: number; byRole: Record<string, number>; byTenant: Record<string, number>; }; error?: undefined; }' is not assignable to type '{ success: true; data: UserStats; error?: undefined; }'.
+      The types of 'data.byRole' are incompatible between these types.
+        Type 'Record<string, number>' is missing the following properties from type '{ admin: number; staff: number; customer: number; }': admin, staff, customer
+app/(dashboard)/users/actions.ts(768,25): error TS2339: Property 'created_at' does not exist on type 'GenericStringError'.
+app/(dashboard)/users/actions.ts(785,30): error TS2339: Property 'created_at' does not exist on type 'GenericStringError'.
+app/login/actions.ts(27,25): error TS2551: Property 'NEXT_PUBLIC_SITE_URL' does not exist on type '{ NEXT_PUBLIC_SUPABASE_URL: string; NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: string; SUPABASE_SERVICE_ROLE_KEY: string; NODE_ENV: "development" | "test" | "production"; CRON_SECRET?: string | undefined; }'. Did you mean 'NEXT_PUBLIC_SUPABASE_URL'?
+components/dashboard/carrier-distribution.tsx(68,55): error TS18048: 'midAngle' is possibly 'undefined'.
+components/dashboard/carrier-distribution.tsx(69,55): error TS18048: 'midAngle' is possibly 'undefined'.
+components/ui/chart.tsx(122,7): error TS2339: Property 'payload' does not exist on type 'Omit<Omit<Props<ValueType, NameType>, PropertiesReadFromContext> & { active?: boolean | undefined; allowEscapeViewBox?: AllowInDimension | undefined; ... 17 more ...; wrapperStyle?: CSSProperties | undefined; } & ClassAttributes<...> & HTMLAttributes<...> & { ...; }, "ref">'.
+components/ui/chart.tsx(127,7): error TS2339: Property 'label' does not exist on type 'Omit<Omit<Props<ValueType, NameType>, PropertiesReadFromContext> & { active?: boolean | undefined; allowEscapeViewBox?: AllowInDimension | undefined; ... 17 more ...; wrapperStyle?: CSSProperties | undefined; } & ClassAttributes<...> & HTMLAttributes<...> & { ...; }, "ref">'.

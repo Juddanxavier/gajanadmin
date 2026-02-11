@@ -27,6 +27,8 @@ import { getShipmentById } from '../actions';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ShipmentTimeline } from '@/components/shipments/shipment-timeline';
 import { ShipmentMap } from '@/components/shipments/shipment-map';
+import { ShipmentNotifications } from '@/components/shipments/shipment-notifications';
+import { getNotificationHistory } from '../actions';
 
 const statusColors: Record<string, string> = {
   pending: 'bg-gray-100 text-gray-800',
@@ -41,9 +43,10 @@ const statusColors: Record<string, string> = {
 export default async function ShipmentDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const result = await getShipmentById(params.id);
+  const { id } = await params;
+  const result = await getShipmentById(id);
 
   if (!result.success || !result.data) {
     notFound();
@@ -51,6 +54,11 @@ export default async function ShipmentDetailPage({
 
   const shipment = result.data;
   const trackingEvents = shipment.tracking_events || [];
+
+  const notificationHistory = await getNotificationHistory(id);
+  const notifications = notificationHistory.success
+    ? notificationHistory.data
+    : [];
 
   return (
     <div className='space-y-6 max-w-7xl mx-auto'>
@@ -277,6 +285,8 @@ export default async function ShipmentDetailPage({
               </CardContent>
             </Card>
           )}
+
+          <ShipmentNotifications notifications={notifications || []} />
 
           <Card>
             <CardHeader>

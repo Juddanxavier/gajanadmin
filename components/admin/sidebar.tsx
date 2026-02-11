@@ -216,7 +216,14 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         </div>
       </div>
 
-      {/* User Footer removed as requested */}
+      {/* Version Footer */}
+      {!isCollapsed && (
+        <div className='px-4 py-3 border-t border-border shrink-0'>
+          <p className='text-xs text-muted-foreground text-center'>
+            Version 1.0.0
+          </p>
+        </div>
+      )}
     </aside>
   );
 }

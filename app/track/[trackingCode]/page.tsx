@@ -21,19 +21,21 @@ const statusColors: Record<string, string> = {
 export async function generateMetadata({
   params,
 }: {
-  params: { trackingCode: string };
+  params: Promise<{ trackingCode: string }>;
 }): Promise<Metadata> {
+  const { trackingCode } = await params;
   return {
-    title: `Track Shipment ${params.trackingCode}`,
-    description: `Track your shipment with tracking code ${params.trackingCode}`,
+    title: `Track Shipment ${trackingCode}`,
+    description: `Track your shipment with tracking code ${trackingCode}`,
   };
 }
 
 export default async function PublicTrackingPage({
   params,
 }: {
-  params: { trackingCode: string };
+  params: Promise<{ trackingCode: string }>;
 }) {
+  const { trackingCode } = await params;
   const supabase = await createClient();
 
   // Fetch shipment by white label code (no auth required)
@@ -47,7 +49,7 @@ export default async function PublicTrackingPage({
       tracking_events(*)
     `,
     )
-    .eq('white_label_code', params.trackingCode)
+    .eq('white_label_code', trackingCode)
     .is('deleted_at', null)
     .single();
 

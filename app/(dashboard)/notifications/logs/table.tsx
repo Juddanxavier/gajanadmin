@@ -39,7 +39,7 @@ interface TableProps {
 }
 
 export function NotificationHistoryTable({ initialData }: TableProps) {
-  const [data, setData] = useState<Log[]>(initialData.data || []);
+  const [data, setData] = useState<Log[]>((initialData?.data ?? []) as Log[]);
   const [metadata, setMetadata] = useState(
     initialData.metadata || { page: 1, totalPages: 1 },
   );
@@ -50,7 +50,7 @@ export function NotificationHistoryTable({ initialData }: TableProps) {
     try {
       const res = await getNotificationLogs(page);
       if (res.success) {
-        setData(res.data);
+        setData(res.data || []);
         setMetadata(res.metadata);
       } else {
         toast.error(res.error || 'Failed to fetch logs');

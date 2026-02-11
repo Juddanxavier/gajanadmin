@@ -1,0 +1,14 @@
+app/track/[trackingCode]/page.tsx(52,23): error TS1109: Expression expected.
+app/track/[trackingCode]/page.tsx(52,24): error TS1109: Expression expected.
+app/track/[trackingCode]/page.tsx(53,5): error TS1443: Module declaration names may only use ' or " quoted strings.
+app/track/[trackingCode]/page.tsx(122,29): error TS1434: Unexpected keyword or identifier.
+app/track/[trackingCode]/page.tsx(122,72): error TS1005: ';' expected.
+app/track/[trackingCode]/page.tsx(122,77): error TS1005: ';' expected.
+app/track/[trackingCode]/page.tsx(137,44): error TS1005: ';' expected.
+app/track/[trackingCode]/page.tsx(137,59): error TS1443: Module declaration names may only use ' or " quoted strings.
+app/track/[trackingCode]/page.tsx(198,41): error TS1005: ';' expected.
+app/track/[trackingCode]/page.tsx(198,45): error TS1005: ';' expected.
+app/track/[trackingCode]/page.tsx(198,58): error TS1005: ';' expected.
+app/track/[trackingCode]/page.tsx(276,24): error TS1005: ';' expected.
+app/track/[trackingCode]/page.tsx(276,52): error TS1128: Declaration or statement expected.
+app/track/[trackingCode]/page.tsx(310,1): error TS1160: Unterminated template literal.

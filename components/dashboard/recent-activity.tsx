@@ -29,7 +29,7 @@ export function RecentActivity({ initialData }: RecentActivityProps) {
   }, []);
 
   return (
-    <Card className='h-full flex flex-col'>
+    <Card className='h-fit shadow-md hover:shadow-lg transition-all'>
       {' '}
       {/* Fixed height for consistency */}
       <CardHeader>
@@ -46,7 +46,7 @@ export function RecentActivity({ initialData }: RecentActivityProps) {
                 No recent activity.
               </p>
             ) : (
-              activities.map((s) => (
+              activities.map((s: any) => (
                 <motion.div
                   key={s.id}
                   initial={{ opacity: 0, y: -20 }}
@@ -54,8 +54,8 @@ export function RecentActivity({ initialData }: RecentActivityProps) {
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.3 }}
                   className='flex items-center gap-4 border-b last:border-0 pb-3 last:pb-0'>
-                  <div className='h-9 w-9 rounded-full bg-secondary flex items-center justify-center'>
-                    <Truck className='h-4 w-4 text-secondary-foreground' />
+                  <div className='h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center'>
+                    <Truck className='h-4 w-4 text-blue-600' />
                   </div>
                   <div className='flex-1 space-y-1'>
                     <Link
@@ -67,7 +67,7 @@ export function RecentActivity({ initialData }: RecentActivityProps) {
                     </Link>
                     <p className='text-xs text-muted-foreground'>
                       {s.latest_location || 'Location unknown'} •{' '}
-                      <span className='capitalize'>
+                      <span className='capitalize font-semibold'>
                         {(s.status || 'unknown').replace('_', ' ')}
                       </span>
                     </p>

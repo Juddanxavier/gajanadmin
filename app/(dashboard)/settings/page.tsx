@@ -37,6 +37,7 @@ import {
   XCircle,
   AlertTriangle,
   RefreshCw,
+  Info,
 } from 'lucide-react';
 import {
   getSettings,
@@ -288,6 +289,9 @@ export default function SettingsPage() {
                     }
                     placeholder='Acme Inc.'
                   />
+                  <p className='text-xs text-muted-foreground'>
+                    This name will appear in emails and reports
+                  </p>
                 </div>
                 <div className='space-y-2'>
                   <Label htmlFor='company_logo_url'>Logo URL</Label>
@@ -302,6 +306,9 @@ export default function SettingsPage() {
                     }
                     placeholder='https://example.com/logo.png'
                   />
+                  <p className='text-xs text-muted-foreground'>
+                    Company logo for email headers and branding
+                  </p>
                 </div>
                 <div className='space-y-2'>
                   <Label htmlFor='brand_color'>Brand Color (Hex)</Label>
@@ -330,6 +337,9 @@ export default function SettingsPage() {
                       className='font-mono uppercas'
                     />
                   </div>
+                  <p className='text-xs text-muted-foreground'>
+                    Primary color used in email notifications
+                  </p>
                 </div>
                 <div className='space-y-2'>
                   <Label htmlFor='company_address'>Company Address</Label>
@@ -344,6 +354,9 @@ export default function SettingsPage() {
                     }
                     placeholder='123 Business St, City, Country'
                   />
+                  <p className='text-xs text-muted-foreground'>
+                    Full address displayed in email footers
+                  </p>
                 </div>
               </div>
             </CardContent>

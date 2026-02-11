@@ -351,7 +351,7 @@ export async function createUser(
   } catch (error) {
     console.error('[createUser] Error:', error);
     if (error instanceof z.ZodError) {
-      return errorResponse(new Error(error.errors[0].message));
+      return errorResponse(new Error((error as any).errors[0].message));
     }
     return errorResponse(
       error instanceof Error ? error : new Error('Failed to create user'),
@@ -617,7 +617,7 @@ export async function getUserStats(): Promise<ActionResponse<UserStats>> {
     // Calculate Stats
     const total = users.length;
     let active = 0;
-    const byRole: Record<string, number> = {};
+    const byRole: UserStats['byRole'] = { admin: 0, staff: 0, customer: 0 };
     const byTenant: Record<string, number> = {};
 
     users.forEach((user: any) => {
@@ -633,7 +633,13 @@ export async function getUserStats(): Promise<ActionResponse<UserStats>> {
       const roles = user.user_roles || [];
       roles.forEach((r: any) => {
         const roleName = r.role || 'unknown';
-        byRole[roleName] = (byRole[roleName] || 0) + 1;
+        if (
+          roleName === 'admin' ||
+          roleName === 'staff' ||
+          roleName === 'customer'
+        ) {
+          byRole[roleName as keyof typeof byRole]++;
+        }
       });
 
       // Tenant breakdown
@@ -747,8 +753,9 @@ export async function getUserDetailedTrendsAction(days: number = 30) {
       fullQuery = fullQuery.in('user_tenants.tenant_id', tenantIds || []);
     }
 
-    const { data: allUsers, error: fullError } = await fullQuery;
+    const { data: allUsersRaw, error: fullError } = await fullQuery;
     if (fullError) throw fullError;
+    const allUsers = (allUsersRaw || []) as any[];
 
     const trends: any[] = [];
     const today = new Date();

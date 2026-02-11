@@ -1,135 +1,113 @@
 /** @format */
 
-import { createClient } from '@supabase/supabase-js';
-import { NotificationService } from '../lib/services/notification-service';
-import * as dotenv from 'dotenv';
-import path from 'path';
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+dotenv.config();
 
-// Load env
-dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+// Dynamic imports to ensure env vars are loaded first
+async function main() {
+  const { createAdminClient } = await import('../lib/supabase/admin');
+  const { notificationQueueService } =
+    await import('../lib/services/notification-queue-service');
+  const { logger } = await import('../lib/logger');
+  const { randomUUID } = await import('crypto');
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Missing Supabase credentials in .env.local');
-  process.exit(1);
+  await testNotificationFlow(
+    createAdminClient,
+    notificationQueueService,
+    logger,
+    randomUUID,
+  );
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+async function testNotificationFlow(
+  createAdminClient: any,
+  notificationQueueService: any,
+  logger: any,
+  randomUUID: any,
+) {
+  const supabase = createAdminClient();
 
-async function runTest() {
   console.log('🚀 Starting Notification Flow Test...');
 
-  // 1. Setup: Get a Tenant
+  // 1. Get a Tenant
   const { data: tenant } = await supabase
     .from('tenants')
-    .select('id, name')
+    .select('id')
     .limit(1)
     .single();
 
   if (!tenant) {
-    console.error('No tenant found. Please create a tenant first.');
+    console.error('❌ No tenant found. Cannot run test.');
     return;
   }
-  console.log(`Using Tenant: ${tenant.name} (${tenant.id})`);
 
-  // 2. Setup: Create a Mock Shipment
-  // We insert directly to bypass 'real' carrier creation for this test
-  const trackingCode = `TEST-${Date.now()}`;
-  const { data: shipment, error: shipError } = await supabase
-    .from('shipments')
+  const tenantId = tenant.id;
+  console.log(`Using Tenant ID: ${tenantId}`);
+
+  // 2. Insert Test Queue Item
+  const payload = {
+    customer_name: 'Test User',
+    customer_email: 'test@example.com',
+    customer_phone: '1234567890',
+    white_label_code: 'TEST-WL-001',
+    tracking_code: 'TEST-TRACK-123',
+    new_status: 'out_for_delivery',
+    amount: '100.00',
+    company_name: 'Test Company',
+  };
+
+  // Generate random UUID for reference_id
+  const referenceId = randomUUID();
+
+  console.log('📝 Inserting queue item...');
+  const { data: queueItem, error: insertError } = await supabase
+    .from('notification_queue')
     .insert({
-      tenant_id: tenant.id,
-      carrier_tracking_code: trackingCode,
-      status: 'pending', // Start pending
-      provider: 'manual',
-      customer_details: {
-        name: 'Test User',
-        email: 'test@example.com', // Dummy email
-        phone: '+1234567890',
-      },
-      white_label_code: `WL-${Date.now()}`,
+      tenant_id: tenantId,
+      reference_id: referenceId, // Required by advanced schema
+      event_type: 'shipment_status',
+      // channel: 'whatsapp', // REMOVED: Advanced schema is channel-agnostic
+      status: 'pending',
+      payload: payload, // Changed from template_data to payload
+      priority: 1,
+      scheduled_for: new Date(Date.now() - 60000).toISOString(), // 1 minute ago
     })
     .select()
     .single();
 
-  if (shipError) {
-    console.error('Failed to create test shipment:', shipError);
+  if (insertError) {
+    console.error('❌ Failed to insert queue item:', insertError);
     return;
   }
-  console.log(`✅ Created Test Shipment: ${trackingCode}`);
 
-  // 3. Trigger Notification (Simulate "Out for Delivery")
-  console.log('🔄 Simulating Status Change to "out_for_delivery"...');
-  const service = new NotificationService(supabase);
+  console.log(`✅ Queue Item Created: ${queueItem.id}`);
 
-  // We manually trigger the "Queue" logic
-  const payload = {
-    shipmentId: shipment.id,
-    tenantId: tenant.id,
-    status: 'out_for_delivery',
-    recipientEmail: shipment.customer_details.email,
-    recipientPhone: shipment.customer_details.phone,
-    recipientName: shipment.customer_details.name,
-    trackingCode: shipment.carrier_tracking_code,
-    referenceCode: shipment.white_label_code,
-    carrier: 'manual_test',
-  };
+  console.log('⏰ Item Scheduled For:', queueItem.scheduled_for);
+  console.log('⏰ Current Time (JS):', new Date().toISOString());
 
-  const queueResult = await service.sendNotifications(payload);
-  console.log('Queue Result:', queueResult);
+  const result = await notificationQueueService.processQueue(1);
 
-  // 4. Verify Queue
-  console.log('🔍 Checking Queue...');
-  const { data: queueItems } = await supabase
+  console.log('📊 Processing Result:', result);
+
+  // 4. Verify Outcome
+  const { data: updatedItem } = await supabase
     .from('notification_queue')
     .select('*')
-    .eq('shipment_id', shipment.id)
-    .eq('status', 'pending');
+    .eq('id', queueItem.id)
+    .single();
 
-  if (!queueItems || queueItems.length === 0) {
-    console.error('❌ Failed: No pending items found in queue!');
-    // Check if triggers blocked it
-    if (queueResult.email?.skipped)
-      console.log('Note: Email skipped (Triggers/Settings).');
-    if (queueResult.whatsapp?.skipped)
-      console.log('Note: WhatsApp skipped (Triggers/Settings).');
+  console.log('🏁 Final Item Status:', updatedItem?.status);
+  console.log(
+    '📜 Execution Log:',
+    JSON.stringify(updatedItem?.execution_log, null, 2),
+  );
+
+  if (updatedItem?.status === 'completed') {
+    console.log('✅ Test PASSED: Notification processed successfully.');
   } else {
-    console.log(`✅ Success: Found ${queueItems.length} items in queue.`);
-
-    // 5. Simulator Worker Processing
-    console.log('⚙️ Simulating Worker Processing...');
-    for (const item of queueItems) {
-      console.log(`   Processing ${item.channel}...`);
-      // We won't actually send real email (might fail or spam), but we call the logic.
-      // Note: If you want to REALLY send, uncomment below.
-      // For safety, we just mark it complete manually to prove "Worker" logic flow,
-      // OR we call `service.processQueueItem(item)` if we are brave.
-      // Let's call it but expect potential failure if credentials invalid.
-
-      try {
-        // Mocking success to avoid actual API calls in this test script
-        // await service.processQueueItem(item);
-        console.log('   [Mock] Call to provider skipped for safety.');
-
-        await supabase
-          .from('notification_queue')
-          .update({ status: 'completed' })
-          .eq('id', item.id);
-        console.log('   marked as completed.');
-      } catch (err) {
-        console.error('   Processing failed:', err);
-      }
-    }
-
-    console.log('✅ Test Complete. Queue items processed.');
+    console.log('❌ Test FAILED: Notification failed or skipped.');
   }
-
-  // Cleanup
-  console.log('🧹 Cleaning up test data...');
-  await supabase.from('shipments').delete().eq('id', shipment.id);
-  // Queue items cascade delete? Yes, configured in schema.
 }
 
-runTest().catch(console.error);
+main().catch(console.error);

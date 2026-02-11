@@ -1,0 +1,4 @@
+app/(dashboard)/notifications/logs/table.tsx(53,17): error TS2345: Argument of type 'any[] | undefined' is not assignable to parameter of type 'SetStateAction<Log[]>'.
+  Type 'undefined' is not assignable to type 'SetStateAction<Log[]>'.
+app/(dashboard)/shipments/actions.ts(879,34): error TS2551: Property 'destination_country' does not exist on type '{ customerName?: string | undefined; customerEmail?: string | undefined; customerPhone?: string | undefined; notes?: string | undefined; destinationCountry?: string | undefined; amount?: number | undefined; }'. Did you mean 'destinationCountry'?
+app/(dashboard)/users/actions.ts(641,11): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ admin: number; staff: number; customer: number; }'.

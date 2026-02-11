@@ -1,0 +1,2 @@
+app/(dashboard)/notifications/logs/table.tsx(182,1): error TS1128: Declaration or statement expected.
+lib/services/track123-service.ts(81,9): error TS1109: Expression expected.

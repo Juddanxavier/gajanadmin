@@ -1,85 +1,103 @@
 /** @format */
 
-import { Users, ShoppingBag, DollarSign, Package } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
+import {
+  getDashboardStats,
+  getShipmentTrends,
+  getRecentActivities,
+  getPerformanceStats,
+  getCarrierStats,
+} from './actions';
+import { StatsOverview } from '@/components/dashboard/stats-overview';
+import { ShipmentTrends } from '@/components/dashboard/shipment-trends';
 import { RecentActivity } from '@/components/dashboard/recent-activity';
+import { QuickActions } from '@/components/dashboard/quick-actions';
+import { CarrierDistribution } from '@/components/dashboard/carrier-distribution';
+import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
-export default async function AdminPage() {
-  // Future: Fetch Leads Stats here
-  const stats = {
-    leads: 0,
-    users: 0,
-  };
+export default async function RequestPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return <div>Please log in</div>;
+  }
+
+  // Fetch role for Quick Actions
+  const admin = createAdminClient();
+  const { data: isGlobal } = await admin.rpc('is_admin', {
+    user_uuid: user.id,
+  });
+
+  const { data: roles } = await admin
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', user.id);
+
+  const role = isGlobal
+    ? 'super_admin'
+    : roles?.some((r) => r.role === 'admin')
+      ? 'admin'
+      : 'user';
+
+  // Parallel Data Fetching
+  const [statsResult, trendsResult, recentActivity, performance, carrierStats] =
+    await Promise.all([
+      getDashboardStats(),
+      getShipmentTrends(),
+      getRecentActivities(),
+      getPerformanceStats(),
+      getCarrierStats(),
+    ]);
+
+  const stats = statsResult.success
+    ? statsResult.stats
+    : { total: 0, active: 0, exceptions: 0, delivered: 0 };
+
+  const trends = trendsResult.success ? trendsResult.data : [];
 
   return (
-    <div className='space-y-6'>
+    <div className='space-y-4'>
       {/* Header */}
       <div className='flex items-center justify-between'>
         <div>
           <h1 className='text-3xl font-bold tracking-tight'>Dashboard</h1>
-          <p className='text-muted-foreground'>Overview of your operations.</p>
+          <p className='text-muted-foreground mt-1'>
+            Get a comprehensive overview of your shipments, performance metrics,
+            and recent activities at a glance.
+          </p>
         </div>
       </div>
 
       {/* Bento Grid Layout */}
-      <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>
-        {/* LEADS CARD */}
-        <Card>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>Total Leads</CardTitle>
-            <ShoppingBag className='h-4 w-4 text-muted-foreground' />
-          </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-bold'>{stats.leads}</div>
-            <p className='text-xs text-muted-foreground'>
-              Active leads pipeline
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* USERS CARD */}
-        <Card>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>Total Users</CardTitle>
-            <Users className='h-4 w-4 text-muted-foreground' />
-          </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-bold'>{stats.users}</div>
-            <p className='text-xs text-muted-foreground'>Registered users</p>
-          </CardContent>
-        </Card>
-
-        {/* Quick Actions */}
-        <Card className='col-span-1 md:col-span-2'>
-          <CardHeader className='pb-2'>
-            <CardTitle>Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent className='grid grid-cols-2 gap-2 h-full items-center'>
-            <Link href='/leads' className='w-full'>
-              <Button
-                variant='outline'
-                className='w-full justify-start h-auto py-2'>
-                <ShoppingBag className='mr-2 h-4 w-4' /> Leads
-              </Button>
-            </Link>
-            <Link href='/settings' className='w-full'>
-              <Button
-                variant='outline'
-                className='w-full justify-start h-auto py-2'>
-                <DollarSign className='mr-2 h-4 w-4' /> Config
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
+      {/* Stats Overview - Top & Full Width */}
+      <div className='mb-6'>
+        <StatsOverview stats={stats as any} performance={performance} />
       </div>
 
-      {/* Recent Activity (Leads focused) */}
-      <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-        <RecentActivity initialData={[]} />
+      {/* Main Content Grid: 2 Columns */}
+      <div className='grid grid-cols-1 lg:grid-cols-2 gap-6 items-start'>
+        {/* Left Column Stack */}
+        <div className='space-y-6'>
+          {/* Quick Actions */}
+          <QuickActions role={role} />
+
+          {/* Shipment Trends */}
+          <ShipmentTrends data={trends} />
+        </div>
+
+        {/* Right Column Stack */}
+        <div className='space-y-6'>
+          {/* Carrier Distribution */}
+          <CarrierDistribution data={carrierStats} />
+
+          {/* Recent Activity */}
+          <RecentActivity initialData={recentActivity} />
+        </div>
       </div>
     </div>
   );

@@ -28,9 +28,10 @@ import {
 } from '@/components/ui/card';
 import { DataTableToolbar } from './data-table-toolbar';
 import { LeadTableFilters, Tenant } from '@/lib/types';
-import { Loader2 } from 'lucide-react';
+import { Loader2, PackageSearch } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DataTablePagination } from '@/components/ui/data-table-pagination';
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -163,7 +164,7 @@ export function DataTable<TData, TValue>({
                       key={row.id}
                       data-state={row.getIsSelected() && 'selected'}
                       className={cn(
-                        'cursor-pointer transition-colors',
+                        'cursor-pointer hover:bg-muted/30 transition-colors',
                         isLoading &&
                           'opacity-50 pointer-events-none transition-opacity duration-200',
                       )}
@@ -171,7 +172,7 @@ export function DataTable<TData, TValue>({
                         router.push(`/leads/${(row.original as any).id}`)
                       }>
                       {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
+                        <TableCell key={cell.id} className='py-3'>
                           {flexRender(
                             cell.column.columnDef.cell,
                             cell.getContext(),
@@ -182,10 +183,12 @@ export function DataTable<TData, TValue>({
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className='h-24 text-center'>
-                      No results.
+                    <TableCell colSpan={columns.length} className='h-64'>
+                      <EmptyState
+                        icon={PackageSearch}
+                        title='No leads found'
+                        description='Try adjusting your filters or search criteria to find what you are looking for.'
+                      />
                     </TableCell>
                   </TableRow>
                 )}

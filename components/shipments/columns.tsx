@@ -2,13 +2,10 @@
 
 'use client';
 
-/** @format */
-
-'use client';
-
 import { ColumnDef } from '@tanstack/react-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { cn, getCountryName } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +15,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   ArrowUpDown,
   RefreshCw,
   Eye,
@@ -25,6 +32,7 @@ import {
   Archive,
   Trash,
   MoreHorizontal,
+  Copy,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
@@ -35,6 +43,16 @@ import {
   refreshShipment,
   archiveShipment,
 } from '@/app/(dashboard)/shipments/actions';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { CountryFlag } from '@/components/ui/country-flag';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { EditShipmentDialog } from './edit-shipment-form';
 
 export type Shipment = {
   id: string;
@@ -121,12 +139,27 @@ export const columns: ColumnDef<Shipment>[] = [
       );
     },
     cell: ({ row }) => {
+      const copyToClipboard = () => {
+        navigator.clipboard.writeText(row.original.white_label_code);
+        toast.success('Code copied to clipboard');
+      };
+
       return (
-        <Link
-          href={`/shipments/${row.original.id}`}
-          className='font-mono font-semibold text-blue-600 hover:text-blue-800 hover:underline'>
-          {row.original.white_label_code}
-        </Link>
+        <div className='flex items-center gap-2 group'>
+          <Link
+            href={`/shipments/${row.original.id}`}
+            className='font-mono font-semibold text-blue-600 hover:text-blue-800 hover:underline'>
+            {row.original.white_label_code}
+          </Link>
+          <Button
+            variant='ghost'
+            size='icon'
+            className='h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity'
+            onClick={copyToClipboard}>
+            <Copy className='h-3 w-3' />
+            <span className='sr-only'>Copy code</span>
+          </Button>
+        </div>
       );
     },
   },
@@ -154,11 +187,28 @@ export const columns: ColumnDef<Shipment>[] = [
   {
     accessorKey: 'carrier_tracking_code',
     header: 'Carrier Tracking',
-    cell: ({ row }) => (
-      <span className='font-mono text-sm text-muted-foreground'>
-        {row.original.carrier_tracking_code}
-      </span>
-    ),
+    cell: ({ row }) => {
+      const copyToClipboard = () => {
+        navigator.clipboard.writeText(row.original.carrier_tracking_code);
+        toast.success('Tracking code copied to clipboard');
+      };
+
+      return (
+        <div className='flex items-center gap-2'>
+          <span className='font-mono text-sm text-muted-foreground'>
+            {row.original.carrier_tracking_code}
+          </span>
+          <Button
+            variant='ghost'
+            size='icon'
+            className='h-6 w-6'
+            onClick={copyToClipboard}>
+            <Copy className='h-3 w-3' />
+            <span className='sr-only'>Copy tracking code</span>
+          </Button>
+        </div>
+      );
+    },
   },
   {
     accessorKey: 'amount',
@@ -223,14 +273,30 @@ export const columns: ColumnDef<Shipment>[] = [
     cell: ({ row }) => {
       const { destination_country, destination_city } = row.original;
       return (
-        <div>
+        <div className='flex flex-col'>
           {destination_city && (
             <div className='font-medium'>{destination_city}</div>
           )}
           {destination_country && (
-            <div className='text-sm text-muted-foreground'>
-              {destination_country}
-            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className='flex items-center gap-2 text-sm text-muted-foreground cursor-help w-fit'>
+                    <CountryFlag
+                      countryCode={destination_country}
+                      className='h-3 w-4 rounded-[1px]'
+                    />
+                    <span>{getCountryName(destination_country)}</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    {destination_city ? `${destination_city}, ` : ''}
+                    {getCountryName(destination_country)}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
           {!destination_country && !destination_city && (
             <span className='text-muted-foreground'>—</span>
@@ -265,82 +331,128 @@ export const columns: ColumnDef<Shipment>[] = [
     id: 'actions',
     cell: ({ row }) => {
       const shipment = row.original;
+      const router = useRouter();
+      const [showDeleteAlert, setShowDeleteAlert] = useState(false);
+      const [showEditDialog, setShowEditDialog] = useState(false);
 
       const handleRefresh = async () => {
         toast.promise(refreshShipment(shipment.id), {
           loading: 'Refreshing tracking...',
           success: (data) => {
-            if (data.success) return 'Refresh requested successfully';
+            if (data.success) {
+              router.refresh();
+              return 'Refresh requested successfully';
+            }
             throw new Error(data.error);
           },
           error: (err) => `Refresh failed: ${err.message}`,
         });
       };
 
-      const handleDelete = async () => {
-        if (!confirm('Are you sure you want to delete this shipment?')) return;
-
+      const executeDelete = async () => {
         toast.promise(deleteShipment(shipment.id), {
           loading: 'Deleting shipment...',
-          success: 'Shipment deleted',
+          success: () => {
+            router.refresh();
+            return 'Shipment deleted';
+          },
           error: 'Failed to delete shipment',
         });
+        setShowDeleteAlert(false);
       };
 
       const handleArchive = async () => {
         toast.promise(archiveShipment(shipment.id), {
           loading: 'Archiving shipment...',
-          success: 'Shipment archived',
+          success: () => {
+            router.refresh();
+            return 'Shipment archived';
+          },
           error: 'Failed to archive shipment',
         });
       };
 
       return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant='ghost' className='h-8 w-8 p-0'>
-              <span className='sr-only'>Open menu</span>
-              <MoreHorizontal className='h-4 w-4' />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align='end'>
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem
-              onClick={() =>
-                navigator.clipboard.writeText(shipment.white_label_code)
-              }>
-              Copy tracking code
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href={`/shipments/${shipment.id}`}>
-                <Eye className='mr-2 h-4 w-4' />
-                View details
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href={`/shipments/${shipment.id}/edit`}>
+        <>
+          <EditShipmentDialog
+            shipment={shipment}
+            open={showEditDialog}
+            onOpenChange={setShowEditDialog}
+          />
+
+          <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete
+                  this shipment and remove its data from our servers.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={executeDelete}
+                  className='bg-destructive text-destructive-foreground hover:bg-destructive/90'>
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant='ghost' className='h-8 w-8 p-0'>
+                <span className='sr-only'>Open menu</span>
+                <MoreHorizontal className='h-4 w-4' />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align='end'>
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuItem
+                onClick={() =>
+                  navigator.clipboard.writeText(shipment.white_label_code)
+                }>
+                Copy tracking code
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href={`/shipments/${shipment.id}`}>
+                  <Eye className='mr-2 h-4 w-4' />
+                  View details
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowEditDialog(true);
+                }}>
                 <Edit className='mr-2 h-4 w-4' />
                 Edit
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleRefresh}>
-              <RefreshCw className='mr-2 h-4 w-4' />
-              Refresh tracking
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            {!shipment.archived_at && (
-              <DropdownMenuItem onClick={handleArchive}>
-                <Archive className='mr-2 h-4 w-4' />
-                Archive
               </DropdownMenuItem>
-            )}
-            <DropdownMenuItem className='text-red-600' onClick={handleDelete}>
-              <Trash className='mr-2 h-4 w-4' />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <DropdownMenuItem onClick={handleRefresh}>
+                <RefreshCw className='mr-2 h-4 w-4' />
+                Refresh tracking
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {!shipment.archived_at && (
+                <DropdownMenuItem onClick={handleArchive}>
+                  <Archive className='mr-2 h-4 w-4' />
+                  Archive
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem
+                className='text-red-600 focus:text-red-600'
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setShowDeleteAlert(true);
+                }}>
+                <Trash className='mr-2 h-4 w-4' />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </>
       );
     },
   },

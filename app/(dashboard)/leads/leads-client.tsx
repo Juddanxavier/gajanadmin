@@ -132,8 +132,9 @@ export function LeadsClient({
       <div className='flex items-center justify-between'>
         <div>
           <h1 className='text-3xl font-bold tracking-tight'>Leads</h1>
-          <p className='text-muted-foreground'>
-            Manage customer leads and shipments
+          <p className='text-muted-foreground mt-1'>
+            Track and manage customer inquiries and potential shipments. Use
+            filters and tabs to organize leads efficiently.
           </p>
         </div>
       </div>

@@ -41,6 +41,8 @@ ON public.notification_queue (status, scheduled_for, priority DESC);
 -- Unique constraint for Debouncing (STRICT: Only ONE pending event per shipment)
 -- This ensures that if 'shipment_created' -> 'in_transit' -> 'delivered' happens rapidly,
 -- we only keep the LATEST event. The previous ones are overwritten.
+DROP INDEX IF EXISTS idx_notification_queue_debounce;
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_notification_queue_debounce 
 ON public.notification_queue (reference_id) 
 WHERE status = 'pending';
@@ -99,7 +101,13 @@ BEGIN
             'new_status', NEW.status,
             'tracking_code', NEW.carrier_tracking_code,
             'customer_email', NEW.customer_details->>'email',
-            'customer_name', NEW.customer_details->>'name'
+            'customer_name', NEW.customer_details->>'name',
+            'white_label_code', NEW.white_label_code,
+            'destination_city', NEW.destination_city,
+            'destination_country', NEW.destination_country,
+            'origin_city', NEW.origin_city,
+            'origin_country', NEW.origin_country,
+            'amount', NEW.amount
         ),
         'pending',
         prio,

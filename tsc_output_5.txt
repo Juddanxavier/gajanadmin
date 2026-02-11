@@ -1,0 +1,25 @@
+app/(dashboard)/notifications/logs/table.tsx(53,17): error TS2345: Argument of type 'any[] | undefined' is not assignable to parameter of type 'SetStateAction<Log[]>'.
+  Type 'undefined' is not assignable to type 'SetStateAction<Log[]>'.
+app/(dashboard)/shipments/actions.ts(879,9): error TS2353: Object literal may only specify known properties, and 'country' does not exist in type '{ courierCode: string; trackNo: string; customerEmail?: string | undefined; customerPhone?: string | undefined; orderNo?: string | undefined; destinationCountry?: string | undefined; remark?: string | undefined; }'.
+app/(dashboard)/shipments/new/page.tsx(93,35): error TS18048: 'result.data' is possibly 'undefined'.
+app/(dashboard)/users/actions.ts(354,44): error TS2339: Property 'errors' does not exist on type 'ZodError<unknown>'.
+app/(dashboard)/users/actions.ts(647,5): error TS2322: Type 'ActionResponse<{ total: number; active: number; byRole: Record<string, number>; byTenant: Record<string, number>; }>' is not assignable to type 'ActionResponse<UserStats>'.
+  Type '{ success: true; data: { total: number; active: number; byRole: Record<string, number>; byTenant: Record<string, number>; }; error?: undefined; }' is not assignable to type 'ActionResponse<UserStats>'.
+    Type '{ success: true; data: { total: number; active: number; byRole: Record<string, number>; byTenant: Record<string, number>; }; error?: undefined; }' is not assignable to type '{ success: true; data: UserStats; error?: undefined; }'.
+      The types of 'data.byRole' are incompatible between these types.
+        Type 'Record<string, number>' is missing the following properties from type '{ admin: number; staff: number; customer: number; }': admin, staff, customer
+app/(dashboard)/users/actions.ts(767,25): error TS2339: Property 'created_at' does not exist on type 'GenericStringError'.
+app/(dashboard)/users/actions.ts(784,30): error TS2339: Property 'created_at' does not exist on type 'GenericStringError'.
+app/login/actions.ts(27,25): error TS2551: Property 'NEXT_PUBLIC_SITE_URL' does not exist on type '{ NEXT_PUBLIC_SUPABASE_URL: string; NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: string; SUPABASE_SERVICE_ROLE_KEY: string; NODE_ENV: "development" | "test" | "production"; CRON_SECRET?: string | undefined; }'. Did you mean 'NEXT_PUBLIC_SUPABASE_URL'?
+components/charts/index.ts(8,10): error TS2724: '"../dashboard/shipment-trends"' has no exported member named 'ShipmentTrendsChart'. Did you mean 'ShipmentTrends'?
+components/dashboard/carrier-distribution.tsx(68,55): error TS18048: 'midAngle' is possibly 'undefined'.
+components/dashboard/carrier-distribution.tsx(69,55): error TS18048: 'midAngle' is possibly 'undefined'.
+components/ui/chart.tsx(122,7): error TS2339: Property 'payload' does not exist on type 'Omit<Omit<Props<ValueType, NameType>, PropertiesReadFromContext> & { active?: boolean | undefined; allowEscapeViewBox?: AllowInDimension | undefined; ... 17 more ...; wrapperStyle?: CSSProperties | undefined; } & ClassAttributes<...> & HTMLAttributes<...> & { ...; }, "ref">'.
+components/ui/chart.tsx(127,7): error TS2339: Property 'label' does not exist on type 'Omit<Omit<Props<ValueType, NameType>, PropertiesReadFromContext> & { active?: boolean | undefined; allowEscapeViewBox?: AllowInDimension | undefined; ... 17 more ...; wrapperStyle?: CSSProperties | undefined; } & ClassAttributes<...> & HTMLAttributes<...> & { ...; }, "ref">'.
+lib/services/track123-service.ts(279,46): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'Record<string, any> | undefined'.
+lib/utils/export.ts(30,23): error TS2339: Property 'invoice_details' does not exist on type 'Shipment'.
+lib/utils/export.ts(31,19): error TS2339: Property 'raw_response' does not exist on type 'Shipment'.
+lib/utils/export.ts(38,42): error TS2339: Property 'origin_country' does not exist on type 'Shipment'.
+lib/utils/export.ts(41,11): error TS2339: Property 'latest_location' does not exist on type 'Shipment'.
+lib/utils/export.ts(48,9): error TS2339: Property 'estimated_delivery' does not exist on type 'Shipment'.
+lib/utils/export.ts(49,9): error TS2339: Property 'latest_location' does not exist on type 'Shipment'.

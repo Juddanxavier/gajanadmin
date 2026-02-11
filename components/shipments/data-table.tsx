@@ -23,9 +23,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Trash2, Loader2 } from 'lucide-react';
+import { Trash2, Loader2, PackageX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
 
 import { DataTableToolbar } from './data-table-toolbar';
 import { PaginationNumbered } from '@/components/ui/pagination-numbered';
@@ -46,6 +47,7 @@ interface DataTableProps<TData, TValue> {
   onFiltersChange?: (filters: ShipmentTableFilters) => void;
   tenants?: Tenant[];
   isLoading?: boolean;
+  hideToolbar?: boolean;
 }
 
 export function DataTable<TData, TValue>({
@@ -61,6 +63,7 @@ export function DataTable<TData, TValue>({
   onFiltersChange,
   tenants = [],
   isLoading = false,
+  hideToolbar = false,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -96,7 +99,7 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className='space-y-4'>
-      {onFiltersChange && (
+      {onFiltersChange && !hideToolbar && (
         <DataTableToolbar
           filters={filters}
           onFiltersChange={onFiltersChange}
@@ -192,10 +195,12 @@ export function DataTable<TData, TValue>({
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className='h-24 text-center'>
-                      No shipments found.
+                    <TableCell colSpan={columns.length} className='h-64'>
+                      <EmptyState
+                        icon={PackageX}
+                        title='No shipments found'
+                        description='No shipments match your current filters. Try adjusting your search criteria or create a new shipment.'
+                      />
                     </TableCell>
                   </TableRow>
                 )}
@@ -211,6 +216,7 @@ export function DataTable<TData, TValue>({
                 currentPage={currentPage}
                 totalPages={pageCount}
                 onPageChange={onPageChange}
+                className='justify-end'
               />
             ) : (
               <div className='flex justify-center text-sm text-muted-foreground'>

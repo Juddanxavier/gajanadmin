@@ -1,0 +1,46 @@
+app/(dashboard)/notifications/logs/table.tsx(53,17): error TS2345: Argument of type 'any[] | undefined' is not assignable to parameter of type 'SetStateAction<Log[]>'.
+  Type 'undefined' is not assignable to type 'SetStateAction<Log[]>'.
+app/(dashboard)/profile/profile-client.tsx(275,56): error TS2339: Property 'full_name' does not exist on type 'UserProfile'.
+app/(dashboard)/profile/profile-client.tsx(278,11): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+app/(dashboard)/profile/profile-client.tsx(279,11): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+app/(dashboard)/profile/profile-client.tsx(280,11): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+app/(dashboard)/profile/profile-client.tsx(281,11): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+app/(dashboard)/profile/profile-client.tsx(282,11): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+app/(dashboard)/profile/profile-client.tsx(291,11): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+app/(dashboard)/shipments/actions.ts(876,9): error TS2353: Object literal may only specify known properties, and 'country' does not exist in type '{ courierCode: string; trackNo: string; customerEmail?: string | undefined; customerPhone?: string | undefined; orderNo?: string | undefined; destinationCountry?: string | undefined; remark?: string | undefined; }'.
+app/(dashboard)/shipments/new/page.tsx(93,42): error TS2339: Property 'data' does not exist on type '{ success: boolean; error?: undefined; } | { success: boolean; error: any; }'.
+  Property 'data' does not exist on type '{ success: boolean; error?: undefined; }'.
+app/(dashboard)/users/actions.ts(354,44): error TS2339: Property 'errors' does not exist on type 'ZodError<unknown>'.
+app/(dashboard)/users/actions.ts(647,5): error TS2322: Type 'ActionResponse<{ total: number; active: number; byRole: Record<string, number>; byTenant: Record<string, number>; }>' is not assignable to type 'ActionResponse<UserStats>'.
+  Type '{ success: true; data: { total: number; active: number; byRole: Record<string, number>; byTenant: Record<string, number>; }; error?: undefined; }' is not assignable to type 'ActionResponse<UserStats>'.
+    Type '{ success: true; data: { total: number; active: number; byRole: Record<string, number>; byTenant: Record<string, number>; }; error?: undefined; }' is not assignable to type '{ success: true; data: UserStats; error?: undefined; }'.
+      The types of 'data.byRole' are incompatible between these types.
+        Type 'Record<string, number>' is missing the following properties from type '{ admin: number; staff: number; customer: number; }': admin, staff, customer
+app/(dashboard)/users/actions.ts(767,25): error TS2339: Property 'created_at' does not exist on type 'GenericStringError'.
+app/(dashboard)/users/actions.ts(784,30): error TS2339: Property 'created_at' does not exist on type 'GenericStringError'.
+app/(dashboard)/users/append_action.ts(8,3): error TS2304: Cannot find name 'ActionResponse'.
+app/(dashboard)/users/append_action.ts(8,18): error TS2304: Cannot find name 'UserDisplay'.
+app/(dashboard)/users/append_action.ts(11,22): error TS2304: Cannot find name 'createAdminClient'.
+app/(dashboard)/users/append_action.ts(12,33): error TS2552: Cannot find name 'getUserTenantIds'. Did you mean 'userTenantIds'?
+app/(dashboard)/users/append_action.ts(13,33): error TS2304: Cannot find name 'isAdmin'.
+app/(dashboard)/users/append_action.ts(57,12): error TS2304: Cannot find name 'successResponse'.
+app/(dashboard)/users/append_action.ts(60,12): error TS2304: Cannot find name 'errorResponse'.
+app/(dashboard)/users/page.tsx(224,22): error TS7006: Parameter 'user' implicitly has an 'any' type.
+app/(dashboard)/users/page.tsx(225,24): error TS7006: Parameter 'user' implicitly has an 'any' type.
+app/login/actions.ts(27,25): error TS2551: Property 'NEXT_PUBLIC_SITE_URL' does not exist on type '{ NEXT_PUBLIC_SUPABASE_URL: string; NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: string; SUPABASE_SERVICE_ROLE_KEY: string; NODE_ENV: "development" | "test" | "production"; CRON_SECRET?: string | undefined; }'. Did you mean 'NEXT_PUBLIC_SUPABASE_URL'?
+components/charts/index.ts(8,37): error TS2307: Cannot find module '../dashboard/shipment-trends-chart' or its corresponding type declarations.
+components/dashboard/carrier-distribution.tsx(68,55): error TS18048: 'midAngle' is possibly 'undefined'.
+components/dashboard/carrier-distribution.tsx(69,55): error TS18048: 'midAngle' is possibly 'undefined'.
+components/leads/columns.tsx(228,68): error TS2345: Argument of type '{}' is not assignable to parameter of type 'string | Date | null | undefined'.
+components/ui/chart.tsx(122,7): error TS2339: Property 'payload' does not exist on type 'Omit<Omit<Props<ValueType, NameType>, PropertiesReadFromContext> & { active?: boolean | undefined; allowEscapeViewBox?: AllowInDimension | undefined; ... 17 more ...; wrapperStyle?: CSSProperties | undefined; } & ClassAttributes<...> & HTMLAttributes<...> & { ...; }, "ref">'.
+components/ui/chart.tsx(127,7): error TS2339: Property 'label' does not exist on type 'Omit<Omit<Props<ValueType, NameType>, PropertiesReadFromContext> & { active?: boolean | undefined; allowEscapeViewBox?: AllowInDimension | undefined; ... 17 more ...; wrapperStyle?: CSSProperties | undefined; } & ClassAttributes<...> & HTMLAttributes<...> & { ...; }, "ref">'.
+components/users/columns.tsx(229,42): error TS2339: Property 'currentUserId' does not exist on type '{ onEdit?: ((user: UserDisplay) => void) | undefined; onDelete?: ((user: UserDisplay) => void) | undefined; }'.
+lib/services/track123-service.ts(81,11): error TS2345: Argument of type 'string' is not assignable to parameter of type 'Record<string, any>'.
+lib/services/track123-service.ts(282,46): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'Record<string, any> | undefined'.
+lib/utils/export.ts(1,10): error TS2305: Module '"@/components/shipments/columns"' has no exported member 'ShipmentDisplay'.

@@ -6,6 +6,7 @@ const envSchema = z.object({
   // Public variables (available on client and server)
   NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
+  NEXT_PUBLIC_SITE_URL: z.string().url().optional().or(z.string().min(1)),
 
   // Server-only variables (undefined on client)
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
@@ -25,6 +26,7 @@ const processEnv = {
   NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+  NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
   CRON_SECRET: process.env.CRON_SECRET,
   NODE_ENV: process.env.NODE_ENV,

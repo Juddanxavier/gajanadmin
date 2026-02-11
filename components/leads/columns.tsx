@@ -222,7 +222,7 @@ export const columns: ColumnDef<Lead>[] = [
       );
     },
     cell: ({ row }) => {
-      const val = row.getValue('created_at');
+      const val = row.getValue('created_at') as string;
       if (!val) return null;
       return (
         <div className='text-muted-foreground text-sm'>{formatDate(val)}</div>

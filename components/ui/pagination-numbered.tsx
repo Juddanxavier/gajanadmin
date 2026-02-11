@@ -14,12 +14,14 @@ interface PaginationNumberedProps {
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
+  className?: string; // Add className prop
 }
 
 export function PaginationNumbered({
   currentPage,
   totalPages,
   onPageChange,
+  className,
 }: PaginationNumberedProps) {
   // Logic to show limited pages
   // e.g., 1 2 3 ... 10 or 1 ... 4 5 6 ... 10
@@ -61,10 +63,10 @@ export function PaginationNumbered({
     return pages;
   };
 
-  if (totalPages <= 1) return null;
+  if (totalPages === 0) return null;
 
   return (
-    <Pagination>
+    <Pagination className={className}>
       <PaginationContent>
         <PaginationItem>
           <PaginationPrevious

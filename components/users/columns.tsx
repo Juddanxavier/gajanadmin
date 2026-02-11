@@ -197,6 +197,7 @@ export const columns: ColumnDef<UserDisplay>[] = [
       const meta = table.options.meta as {
         onEdit?: (user: UserDisplay) => void;
         onDelete?: (user: UserDisplay) => void;
+        currentUserId?: string;
       };
 
       return (

@@ -15,13 +15,20 @@ const defaultUrl = process.env.VERCEL_URL
 export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
   title: {
-    default: 'GT Express',
+    default: 'GT Express Admin Portal',
     template: '%s | GT Express',
   },
-  description: 'Internal Shipment Management Portal',
+  description:
+    'Comprehensive shipment management portal for tracking, managing, and monitoring shipments across multiple carriers with real-time updates.',
+  keywords: ['shipment management', 'logistics', 'tracking', 'admin portal'],
   robots: {
     index: false,
     follow: false,
+  },
+  openGraph: {
+    title: 'GT Express Admin Portal',
+    description: 'Shipment Management & Tracking System',
+    type: 'website',
   },
 };
 

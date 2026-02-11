@@ -4,6 +4,7 @@
 
 import Navbar from '@/components/admin/navbar';
 import Sidebar from '@/components/admin/sidebar';
+import { Footer } from '@/components/ui/footer';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { NotificationProvider } from '@/contexts/notification-context';
@@ -32,7 +33,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <NotificationProvider>
-      <div className='relative min-h-screen'>
+      <div className='relative flex flex-col min-h-screen'>
         <CommandMenu />
         {/* Sidebar - Hidden on mobile */}
         <div className='hidden md:block'>
@@ -45,7 +46,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         {/* Main Content */}
         <div
           className={cn(
-            'min-h-screen transition-all duration-300',
+            'flex-1 flex flex-col transition-all duration-300',
             isSidebarCollapsed ? 'md:pl-16' : 'md:pl-64',
           )}>
           {/* Navbar */}
@@ -55,9 +56,12 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           />
 
           {/* Page Content */}
-          <main className='p-4 sm:p-6 md:p-8'>
+          <main className='flex-1 p-4 sm:p-6 md:p-8'>
             <div className='mx-auto max-w-7xl'>{children}</div>
           </main>
+
+          {/* Footer */}
+          <Footer />
         </div>
       </div>
     </NotificationProvider>

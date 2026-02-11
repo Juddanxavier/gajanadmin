@@ -76,10 +76,7 @@ export class Track123Service {
         endpoint.includes('/track/query') ||
         endpoint.includes('/track/import')
       ) {
-        logger.info(
-          `Track123 Response [${endpoint}]:`,
-          JSON.stringify(data, null, 2),
-        );
+        logger.info(`Track123 Response [${endpoint}]:`, { data });
       }
 
       // Track123 specific error handling (code != 0 and != 200)
@@ -149,7 +146,7 @@ export class Track123Service {
       }
     } else if (Array.isArray(resultData)) {
       // Handle legacy array format if any
-      return resultData;
+      return resultData as CarrierDetectionItem[];
     }
 
     return items;
@@ -279,7 +276,7 @@ export class Track123Service {
       // Check success
       return response && (response.code === 0 || response.code === 200);
     } catch (error) {
-      logger.error('Track123 Delete Failed', error);
+      logger.error('Track123 Delete Failed', { error: error as any });
       // We might return false or throw. Let's throw so the action knows.
       throw error;
     }
@@ -311,6 +308,32 @@ export class Track123Service {
       logger.error('Track123 Refresh Failed', {
         message: error.message || error,
       });
+      throw error;
+    }
+  }
+
+  /**
+   * Update tracking information
+   * Endpoint: /track/update
+   */
+  async updateTracking(params: {
+    courierCode: string;
+    trackNo: string;
+    customerEmail?: string;
+    customerPhone?: string;
+    orderNo?: string;
+    destCountry?: string;
+    remark?: string; // notes
+  }): Promise<boolean> {
+    try {
+      const response = await this.makeRequest<any>(
+        '/track/update',
+        'POST',
+        params,
+      );
+      return response && (response.code === 0 || response.code === 200);
+    } catch (error: any) {
+      logger.error('Track123 Update Failed', { error: error as any });
       throw error;
     }
   }

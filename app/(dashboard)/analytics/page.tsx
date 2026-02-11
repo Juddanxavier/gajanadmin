@@ -8,10 +8,17 @@ import { PredictiveInsights } from '@/components/analytics/predictive-insights';
 import { RevenueChart } from '@/components/analytics/revenue-chart';
 import { LeadsView } from '@/components/analytics/leads-view';
 import { UsersView } from '@/components/analytics/users-view';
-// import { ShipmentsView } from '@/components/analytics/shipments-view';
+import { ShipmentsView } from '@/components/analytics/shipments-view';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Suspense } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Analytics',
+  description: 'View shipment trends, revenue, and performance insights.',
+};
 
 export const dynamic = 'force-dynamic';
 
@@ -46,7 +53,7 @@ export default async function AnalyticsPage() {
         </TabsContent>
 
         <TabsContent value='shipments' className='space-y-4'>
-          {/* <ShipmentsView /> */}
+          <ShipmentsView />
         </TabsContent>
 
         <TabsContent value='leads' className='space-y-4'>

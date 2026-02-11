@@ -1,4 +1,6 @@
 {
+  "name": "gt-express-admin",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -44,7 +46,7 @@
     "country-flag-icons": "^1.6.4",
     "d3-scale": "^4.0.2",
     "date-fns": "^4.1.0",
-    "dotenv": "^17.2.3",
+    "dotenv": "^17.2.4",
     "driver.js": "^1.4.0",
     "framer-motion": "^12.23.26",
     "i18n-iso-countries": "^7.14.0",

@@ -74,12 +74,27 @@ const step1Schema = z.object({
   tenantId: z.string().optional(),
 });
 
-// Step 3: Amount
-const step3Schema = z.object({
-  amount: z.coerce.number().min(0).optional(),
+// Step 2: Details Checks (Manual validation helper)
+const step2NewUserSchema = z.object({
+  customerName: z.string().min(1, 'Customer Name is required'),
+  customerEmail: z.string().email('Invalid email address'),
+  customerPhone: z.string().optional(),
+  notes: z.string().optional(),
+  assignmentMode: z.literal('new'),
 });
 
-// Full Schema
+const step2ExistingUserSchema = z.object({
+  assignedUserId: z.string().min(1, 'Please select a user'),
+  notes: z.string().optional(),
+  assignmentMode: z.literal('user'),
+});
+
+// Step 3: Amount
+const step3Schema = z.object({
+  amount: z.coerce.number().min(0.01, 'Amount is required'),
+});
+
+// Full Schema for final submission
 const formSchema = step1Schema
   .extend({
     // Step 2
@@ -91,7 +106,7 @@ const formSchema = step1Schema
     notes: z.string().optional(),
 
     // Step 3
-    amount: z.coerce.number().min(0).optional(),
+    amount: z.coerce.number().min(0.01, 'Amount is required'),
   })
   .superRefine((data, ctx) => {
     if (data.assignmentMode === 'new') {
@@ -154,7 +169,7 @@ export function NewShipmentDialog({
   const router = useRouter();
 
   const form = useForm<FormData>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema) as any,
     defaultValues: {
       carrierTrackingCode: '',
       carrierId: '',
@@ -256,6 +271,12 @@ export function NewShipmentDialog({
   }
 
   async function onSubmit(data: FormData) {
+    // Final check for step 3 requirement if somehow bypassed
+    if (!data.amount || data.amount <= 0) {
+      form.setError('amount', { message: 'Amount is required' });
+      return;
+    }
+
     // Optimistic Update
     onOptimisticUpdate?.(data);
     if (tenants.length > 0 && !data.tenantId) {
@@ -283,6 +304,60 @@ export function NewShipmentDialog({
       setIsSubmitting(false);
     }
   }
+
+  const handleNext = async () => {
+    const values = form.getValues();
+    if (step === 1) {
+      const result = step1Schema.safeParse(values);
+      if (result.success) {
+        setStep(2);
+      } else {
+        result.error.issues.forEach((issue) => {
+          const path = issue.path[0] as any;
+          if (path) form.setError(path, { message: issue.message });
+        });
+      }
+    } else if (step === 2) {
+      const mode = form.getValues('assignmentMode');
+      let result;
+
+      if (mode === 'new') {
+        result = step2NewUserSchema.safeParse({
+          customerName: values.customerName,
+          customerEmail: values.customerEmail,
+          customerPhone: values.customerPhone,
+          notes: values.notes,
+          assignmentMode: 'new',
+        });
+      } else {
+        result = step2ExistingUserSchema.safeParse({
+          assignedUserId: values.assignedUserId,
+          notes: values.notes,
+          assignmentMode: 'user',
+        });
+      }
+
+      if (result.success) {
+        setStep(3);
+      } else {
+        result.error.issues.forEach((issue) => {
+          const path = issue.path[0] as any;
+          if (path) form.setError(path, { message: issue.message });
+        });
+      }
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      // Prevent form submission on Enter key for steps 1 and 2
+      if (step < 3) {
+        e.preventDefault();
+        handleNext();
+      }
+      // For step 3, let it submit
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -319,25 +394,13 @@ export function NewShipmentDialog({
         </div>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-4'>
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className='space-y-4'
+            onKeyDown={handleKeyDown}>
             {/* STEP 1: TRACKING */}
             {step === 1 && (
               <div className='space-y-4'>
-                {/* DEBUG VISUAL */}
-                <div className='p-2 bg-yellow-100 text-yellow-800 text-xs rounded mb-2'>
-                  Debug Info: Tenants Found: {tenants.length} <br />
-                  {debugError && (
-                    <span className='text-red-600 font-bold'>
-                      Error: {debugError}
-                      <br />
-                    </span>
-                  )}
-                  {carriers.length === 0 && (
-                    <span className='text-blue-600'>Loading carriers...</span>
-                  )}
-                  User ID: {form.getValues('assignedUserId') || 'None'}
-                </div>
-
                 {/* Global Admin Tenant Selection */}
                 {tenants.length > 0 && (
                   <FormField
@@ -633,7 +696,7 @@ export function NewShipmentDialog({
                   name='amount'
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Amount (Optional)</FormLabel>
+                      <FormLabel>Amount (Required)</FormLabel>
                       <FormControl>
                         <Input type='number' placeholder='0.00' {...field} />
                       </FormControl>
@@ -675,38 +738,7 @@ export function NewShipmentDialog({
               )}
 
               {step < 3 ? (
-                <Button
-                  type='button'
-                  onClick={async () => {
-                    const values = form.getValues();
-                    if (step === 1) {
-                      const result = step1Schema.safeParse(values);
-                      if (result.success) {
-                        setStep(2);
-                      } else {
-                        result.error.issues.forEach((issue) => {
-                          const path = issue.path[0] as any;
-                          if (path)
-                            form.setError(path, { message: issue.message });
-                        });
-                      }
-                    } else if (step === 2) {
-                      // Step 2 validation (manual trigger since it's part of main schema but conditional)
-                      // We can use form.trigger with specific fields
-                      const mode = form.getValues('assignmentMode');
-                      let fields: any[] = ['assignmentMode', 'notes'];
-                      if (mode === 'user') fields.push('assignedUserId');
-                      else
-                        fields.push(
-                          'customerName',
-                          'customerEmail',
-                          'customerPhone',
-                        );
-
-                      const valid = await form.trigger(fields);
-                      if (valid) setStep(3);
-                    }
-                  }}>
+                <Button type='button' onClick={handleNext}>
                   Next
                 </Button>
               ) : (

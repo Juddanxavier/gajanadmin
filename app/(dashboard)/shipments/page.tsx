@@ -25,6 +25,8 @@ export default async function ShipmentsPage() {
         delivered: 0,
         exception: 0,
         this_month: 0,
+        total_revenue: 0,
+        success_rate: 0,
       };
 
   const tenants = tenantsResult || [];

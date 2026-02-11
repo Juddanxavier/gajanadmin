@@ -3,7 +3,7 @@
 import { createAdminClient } from '../supabase/admin';
 import { logger } from '../logger';
 import { emailService } from './email-service';
-// import { whatsappService } from './whatsapp-service'; // Uncomment when ready
+import { whatsappService } from './whatsapp-service';
 
 export class NotificationQueueService {
   /**
@@ -120,13 +120,21 @@ export class NotificationQueueService {
     let atLeastOneSuccess = false;
     let atLeastOneAttempt = false;
 
-    const { tenant_id, event_type, payload } = item;
+    const {
+      tenant_id,
+      event_type,
+      template_data,
+      metadata,
+      payload: itemPayload,
+    } = item;
+    // Fallback: use payload (newest) > template_data (new) > metadata (old)
+    const payload = itemPayload || template_data || metadata || {};
 
     // A. Fetch Configuration (Providers & Triggers)
     // 1. Get Settings (Triggers)
     const { data: settings } = await supabase
       .from('settings')
-      .select('notification_triggers')
+      .select('notification_triggers, company_details, color_palette')
       .eq('tenant_id', tenant_id)
       .single();
 
@@ -178,14 +186,35 @@ export class NotificationQueueService {
               variables: {
                 ...payload,
                 status: payload.new_status,
+                company_name: settings?.company_details?.name,
+                brand_color: settings?.color_palette?.primary,
+                amount: payload.amount,
+                tracking_url: `https://gajantraders.com/track/${payload.white_label_code || payload.tracking_code}`,
+                company_logo: settings?.company_logo_url,
               },
             });
 
             logs['email'] = result.success ? 'sent' : `failed: ${result.error}`;
             if (result.success) atLeastOneSuccess = true;
           } else if (channel === 'whatsapp') {
-            // const res = await whatsappService.send(...)
-            logs['whatsapp'] = 'skipped_impl_pending';
+            // Send WhatsApp
+            const result = await whatsappService.sendWhatsApp(tenant_id, {
+              to: payload.customer_phone || payload.customer_details?.phone, // Ensure phone is captured
+              templateName: event_type, // Requires MSG91 template with this name
+              variables: {
+                ...payload,
+                company_name: settings?.company_details?.name,
+                white_label_code:
+                  payload.white_label_code ||
+                  settings?.company_details?.name ||
+                  'Gajan Traders',
+              },
+            });
+
+            logs['whatsapp'] = result.success
+              ? 'sent'
+              : `failed: ${result.error}`;
+            if (result.success) atLeastOneSuccess = true;
           }
         } catch (providerErr: any) {
           logs[channel] = `error: ${providerErr.message}`;

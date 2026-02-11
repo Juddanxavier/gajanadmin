@@ -257,6 +257,14 @@ export default function ProfileClient({
     );
   }
 
+  if (!profile) {
+    return (
+      <div className='flex items-center justify-center h-96 text-muted-foreground'>
+        Failed to load profile. Please try refreshing.
+      </div>
+    );
+  }
+
   return (
     <div className='max-w-4xl mx-auto space-y-4'>
       {/* Cover & Profile Picture - Social Media Style */}
@@ -264,23 +272,23 @@ export default function ProfileClient({
       <ProfileHeader
         data={{
           userId: profile.id,
-          displayName: profile.display_name || profile.full_name || 'User',
+          displayName: profile.display_name || 'User',
           email: profile.email,
-          isEmailVerified: context?.isEmailVerified,
-          phone: profile.phone,
-          company: profile.company,
-          city: profile.city,
-          country: profile.country,
-          avatarUrl: profile.avatar_url,
+          isEmailVerified: context?.isEmailVerified ?? false,
+          phone: profile.phone ?? undefined,
+          company: profile.company ?? undefined,
+          city: profile.city ?? undefined,
+          country: profile.country ?? undefined,
+          avatarUrl: profile.avatar_url ?? undefined,
           roles: context?.roles || [],
           tenants:
-            context?.tenants?.map((t) => ({
+            context?.tenants?.map((t: any) => ({
               name: t.name,
               countryCode: t.country_code,
             })) || [],
           isGlobalAdmin: context?.isGlobalAdmin || false,
           joinedAt: profile.created_at,
-          lastLogin: profile.last_sign_in_at,
+          lastLogin: profile.last_sign_in_at ?? undefined,
         }}
         onAvatarUpload={handleAvatarUploadFile}
         uploading={uploading}
@@ -320,6 +328,9 @@ export default function ProfileClient({
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder='Your name'
                 />
+                <p className='text-xs text-muted-foreground'>
+                  This name will be visible to other users
+                </p>
               </div>
               <div className='space-y-2'>
                 <Label htmlFor='phone'>Phone Number</Label>
@@ -329,6 +340,9 @@ export default function ProfileClient({
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder='+1 234 567 890'
                 />
+                <p className='text-xs text-muted-foreground'>
+                  Include country code for international numbers
+                </p>
               </div>
             </div>
             <div className='space-y-2'>
@@ -429,6 +443,9 @@ export default function ProfileClient({
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder='••••••••'
               />
+              <p className='text-xs text-muted-foreground'>
+                Password must be at least 8 characters long
+              </p>
             </div>
             <div className='space-y-2'>
               <Label htmlFor='confirmPassword'>Confirm Password</Label>

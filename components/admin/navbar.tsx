@@ -13,6 +13,7 @@ import {
   ChevronDown,
   Globe,
 } from 'lucide-react';
+import { Tooltip, TooltipTrigger, TooltipContent } from '../ui/tooltip';
 import Link from 'next/link';
 import { NotificationBell } from '../notifications/notification-bell';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
@@ -141,13 +142,25 @@ export default function Navbar({
         <div className='flex items-center gap-3 flex-1'>
           {/* Desktop Sidebar Toggle */}
           {onSidebarToggle && (
-            <Button
-              variant='ghost'
-              size='icon'
-              onClick={onSidebarToggle}
-              className='hidden md:flex shrink-0'>
-              <Menu className='h-5 w-5' />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant='ghost'
+                  size='icon'
+                  onClick={onSidebarToggle}
+                  aria-label={
+                    isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'
+                  }
+                  className='hidden md:flex shrink-0'>
+                  <Menu className='h-5 w-5' />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>
+                  {isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                </p>
+              </TooltipContent>
+            </Tooltip>
           )}
 
           {/* Mobile Menu */}
@@ -279,22 +292,30 @@ export default function Navbar({
             </div>
           )}
           {/* Theme Toggle */}
-          <Button
-            variant='ghost'
-            size='icon'
-            onClick={toggleTheme}
-            className='relative shrink-0'>
-            {mounted && (
-              <>
-                {theme === 'dark' ? (
-                  <Sun className='h-5 w-5' />
-                ) : (
-                  <Moon className='h-5 w-5' />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant='ghost'
+                size='icon'
+                onClick={toggleTheme}
+                aria-label='Toggle theme'
+                className='relative shrink-0'>
+                {mounted && (
+                  <>
+                    {theme === 'dark' ? (
+                      <Sun className='h-5 w-5' />
+                    ) : (
+                      <Moon className='h-5 w-5' />
+                    )}
+                  </>
                 )}
-              </>
-            )}
-            {!mounted && <Moon className='h-5 w-5' />}
-          </Button>
+                {!mounted && <Moon className='h-5 w-5' />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Toggle {theme === 'dark' ? 'light' : 'dark'} mode</p>
+            </TooltipContent>
+          </Tooltip>
 
           {/* Notifications */}
           <NotificationBell />

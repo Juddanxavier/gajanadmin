@@ -122,6 +122,12 @@ export class EmailService {
           customerName: params.variables.customer_name || 'Customer',
           trackingUrl: `https://gajantraders.com/track/${params.variables.tracking_code}`,
           message: `Your shipment status is now: ${params.variables.new_status}`,
+          companyName: params.variables.company_name,
+          brandColor: params.variables.brand_color,
+          destinationCity: params.variables.destination_city,
+          destinationCountry: params.variables.destination_country,
+          amount: params.variables.amount,
+          companyLogo: params.variables.company_logo,
         }),
       );
 
@@ -148,37 +154,27 @@ export class EmailService {
       params.variables,
     );
 
-    // 3. Construct HTML (Basic wrapper)
-    // In a real app we might use React Email here, but for dynamic DB templates
-    // we assume they are snippets injected into a layout.
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <style>
-            body { font-family: sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { margin-bottom: 20px; }
-            .footer { margin-top: 30px; font-size: 12px; color: #666; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            ${heading ? `<h2>${heading}</h2>` : ''}
-            <div>${body}</div>
-            <div class="footer">
-              <p>Powered by Gajan</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
+    // 3. Render using React Email Component
+    const emailHtml = await render(
+      ShipmentNotification({
+        trackingCode: params.variables.tracking_code || 'Unknown',
+        status: params.variables.new_status || 'Update',
+        customerName: params.variables.customer_name || 'Customer',
+        trackingUrl: `https://gajantraders.com/track/${params.variables.tracking_code}`,
+        companyName: params.variables.company_name,
+        brandColor: params.variables.brand_color,
+        amount: params.variables.amount,
+        companyLogo: params.variables.company_logo,
+        customHeading: heading,
+        customBody: body,
+      }),
+    );
 
     // 4. Send
     return await this.sendEmail(params.tenantId, {
       to: params.to,
       subject,
-      html,
+      html: emailHtml,
     });
   }
 
